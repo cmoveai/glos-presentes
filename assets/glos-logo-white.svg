@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 42" width="130" height="42" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;display=swap');
+    .word {
+      font-family: 'Cormorant Garamond', 'Playfair Display', 'Didot', 'Bodoni MT', 'Georgia', serif;
+      font-size: 38px;
+      font-weight: 600;
+      fill: #FFFFFF;
+      letter-spacing: -0.03em;
+    }
+    .dot {
+      fill: #004AAD;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-weight: 700;
+    }
+  </style>
+  <text x="2" y="32" class="word">glos<tspan class="dot">.</tspan></text>
+</svg>

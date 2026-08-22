@@ -1,12 +1,15 @@
 /**
- * CONFIGURAÇÃO CENTRAL DA MARCA
- * Conforme especificação: enquanto o naming oficial não estiver definido,
- * utilize "NOME DA MARCA" como placeholder editável neste único arquivo.
+ * CONFIGURAÇÃO CENTRAL DA MARCA — glos.
+ * Marca: glos. (glos. presentes)
+ * Nicho: Presentes afetivos, kits finos e produtos personalizados para pessoa física.
+ * Aplicação standalone - Nenhuma credencial/segredo neste arquivo (sempre em variáveis de ambiente do servidor).
  */
 
 export interface BrandConfig {
   name: string;
+  displayName: string;
   shortName: string;
+  adminLabel: string;
   tagline: string;
   description: string;
   whatsapp: string;
@@ -25,21 +28,24 @@ export interface BrandConfig {
 }
 
 export const BRAND_CONFIG: BrandConfig = {
-  name: "Ativva Gifts",
-  shortName: "Ativva",
-  tagline: "Presentes e objetos de design que transformam o dia a dia",
-  description: "Curadoria autoral de presentes criativos, utilidades para casa, cozinha contemporânea, tecnologia e kits especiais feitos para surpreender.",
+  name: "glos.",
+  displayName: "glos. presentes",
+  shortName: "glos.",
+  adminLabel: "Painel do Lojista",
+  tagline: "Presentes finos, kits afetivos e criações personalizadas com foto e gravação",
+  description: "Curadoria autoral de presentes criativos, kits com afeto, papelaria fina e itens personalizados para surpreender quem você ama.",
   whatsapp: "5511947596045",
   whatsappDisplay: "(11) 94759-6045",
-  email: "contato@ativvagifts.com.br",
+  email: "contato@glospresentes.com.br",
   phone: "5511947596045",
   phoneDisplay: "(11) 94759-6045",
   openingHours: "Segunda a Sexta das 09h às 18h | Sábado das 09h às 13h",
   freeShippingThreshold: 249.0, // Frete grátis acima de R$ 249
-  maxInstallmentsWithoutInterest: 10,
+  maxInstallmentsWithoutInterest: 6,
   pixDiscountPercentage: 5, // 5% de desconto no Pix
   cnpjPlaceholder: "00.000.000/0001-00 (Demonstrativo)",
-  addressPlaceholder: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP, 01310-100",
-  instagramHandle: "@nomedamarca",
+  addressPlaceholder: "São Paulo - SP, Brasil",
+  instagramHandle: "@glospresentes",
   isDemoMode: true,
 };
+

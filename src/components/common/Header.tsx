@@ -24,6 +24,7 @@ import { PRODUCTS } from "../../data/products";
 import { CATEGORIES } from "../../data/categories";
 import { OCCASIONS } from "../../data/occasions";
 import { ProductCategory, ProductOccasion } from "../../types";
+import { BrandLogo } from "../admin/BrandLogo";
 
 interface HeaderProps {
   onNavigateHome: () => void;
@@ -143,19 +144,10 @@ export const Header: React.FC<HeaderProps> = ({
             {/* BRAND LOGO */}
             <button
               onClick={onNavigateHome}
-              className="flex items-center gap-2.5 text-left group focus:outline-none"
+              className="flex items-center text-left group focus:outline-none py-1"
+              aria-label="Ir para a página inicial"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-stone-950 text-white flex items-center justify-center font-serif text-lg sm:text-xl font-bold tracking-tighter group-hover:bg-stone-800 transition-colors shadow-xs">
-                M
-              </div>
-              <div className="flex flex-col">
-                <span className="text-base sm:text-lg font-black tracking-tight text-stone-950 font-sans leading-none">
-                  {BRAND_CONFIG.name}
-                </span>
-                <span className="text-[10px] sm:text-[11px] tracking-widest text-stone-700 uppercase font-medium mt-0.5">
-                  Presentes & Design
-                </span>
-              </div>
+              <BrandLogo size="header" />
             </button>
           </div>
 
@@ -524,7 +516,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
           <div className="relative w-4/5 max-w-sm h-full bg-white shadow-2xl flex flex-col p-5 overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-stone-200">
-              <div className="font-bold text-stone-950 text-base">{BRAND_CONFIG.name}</div>
+              <BrandLogo size="sm" />
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-1 text-stone-500 hover:text-stone-900"

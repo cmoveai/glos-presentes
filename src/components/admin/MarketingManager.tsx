@@ -341,7 +341,7 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({
                   type="text"
                   value={form.seoTitle || ""}
                   onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
-                  placeholder="Ex: NOME DA MARCA | Presentes Criativos & Design Autoral"
+                  placeholder="Ex: glos. | Presentes Criativos & Design Autoral"
                   className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none"
                 />
               </div>
@@ -395,7 +395,7 @@ export const MarketingManager: React.FC<MarketingManagerProps> = ({
               <div className="bg-white p-4 rounded-xl border border-stone-200 space-y-1">
                 <div className="text-[11px] text-stone-500 truncate">https://sua-loja.com.br</div>
                 <div className="text-sm font-semibold text-blue-800 hover:underline cursor-pointer">
-                  {form.seoTitle || "NOME DA MARCA | Presentes Criativos & Design Autoral"}
+                  {form.seoTitle || "glos. | Presentes Criativos & Design Autoral"}
                 </div>
                 <div className="text-xs text-stone-600 line-clamp-2">
                   {form.seoDescription || "Curadoria autoral de presentes criativos e kits especiais feitos para surpreender..."}

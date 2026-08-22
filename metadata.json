@@ -1,6 +1,6 @@
 {
-  "name": "NOME DA MARCA - E-commerce de Presentes e Produtos",
-  "description": "E-commerce moderno B2C de presentes criativos, cozinha, eletrônicos, casa, decoração e kits especiais para o consumidor final.",
+  "name": "glos. - Painel do Lojista",
+  "description": "Painel administrativo do lojista para e-commerce B2C de presentes finos, criativos e personalizados com design minimalista e editorial.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

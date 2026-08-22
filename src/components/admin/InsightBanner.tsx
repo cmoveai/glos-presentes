@@ -1,78 +1,60 @@
 import React from "react";
-import { Sparkles, ArrowRight, Lightbulb } from "lucide-react";
+import { Sparkles, X, ArrowUpRight } from "lucide-react";
 
-export interface InsightBannerProps {
-  icon?: React.ReactNode;
-  text?: string;
-  insight?: string;
+interface InsightBannerProps {
   title?: string;
-  actionLabel?: string;
+  description?: string;
+  actionText?: string;
   onAction?: () => void;
-  variant?: "emerald" | "amber" | "blue" | "stone" | "growth" | "alert" | "neutral";
-  type?: "growth" | "alert" | "neutral";
-  chipText?: string;
-  badge?: string;
+  onDismiss?: () => void;
+  className?: string;
 }
 
+/**
+ * Banner de insight inteligente do Painel glos.
+ * Cartão flat editorial com destaque cobalt discreto.
+ */
 export const InsightBanner: React.FC<InsightBannerProps> = ({
-  icon,
-  text,
-  insight,
-  title,
-  actionLabel,
+  title = "Insight de Varejo Afetivo",
+  description = "Aproximadamente 42% dos pedidos deste mês foram destinados para presente com cartão personalizado. Aumente as opções de personalização de embalagem.",
+  actionText = "Ver detalhes",
   onAction,
-  variant,
-  type,
-  chipText,
-  badge,
+  onDismiss,
+  className = "",
 }) => {
-  const content = insight || text || "";
-  const displayBadge = badge || chipText || "IA Insight";
-  const finalType = type || (variant === "alert" ? "alert" : variant === "growth" ? "growth" : "neutral");
-
-  let badgeStyle = "bg-[#EDF1FF] text-[#2E5BFF] border-[#BFDBFE]";
-  let iconBg = "bg-[#EDF1FF] text-[#2E5BFF]";
-
-  if (finalType === "alert") {
-    badgeStyle = "bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]";
-    iconBg = "bg-[#FEF3C7] text-[#B45309]";
-  } else if (finalType === "growth") {
-    badgeStyle = "bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]";
-    iconBg = "bg-[#D1FAE5] text-[#047857]";
-  }
-
   return (
-    <div
-      id="insight-banner-root"
-      className="bg-[#FFFFFF] border border-[#E3E5E9] rounded-lg p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-    >
-      <div className="flex items-start sm:items-center gap-3">
-        <div className={`w-7 h-7 rounded-md ${iconBg} flex items-center justify-center shrink-0`}>
-          {icon || <Lightbulb className="w-4 h-4" />}
-        </div>
-        <div className="space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 ${badgeStyle}`}
-            >
-              {displayBadge}
-            </span>
-            {title && <span className="font-bold text-[#1A1F27]">{title}</span>}
-          </div>
-          <p className="text-[#5B6270] font-medium leading-relaxed">{content}</p>
-        </div>
+    <div className={`bg-[#F4F3EF] border border-[#D6D3CC] rounded-[8px] p-4 sm:p-5 text-[#272727] flex items-start gap-3.5 ${className}`}>
+      <div className="p-1.5 rounded-[6px] bg-[rgba(0,74,173,0.08)] text-[#004AAD] shrink-0 mt-0.5">
+        <Sparkles className="w-4 h-4" />
       </div>
 
-      {actionLabel && onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EDF1FF] hover:bg-[#DBEAFE] text-[#2E5BFF] rounded-md font-semibold text-xs transition-colors shrink-0 self-start sm:self-center cursor-pointer"
-        >
-          <span>{actionLabel}</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-sm font-medium text-[#272727]">{title}</h4>
+          {onDismiss && (
+            <button
+              onClick={onDismiss}
+              className="text-[#9B998F] hover:text-[#272727] p-0.5 rounded transition-colors"
+              title="Dispensar"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <p className="text-xs sm:text-sm font-normal text-[#6B6A64] mt-1 leading-relaxed">
+          {description}
+        </p>
+
+        {actionText && (
+          <button
+            onClick={onAction}
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#004AAD] hover:underline mt-2.5"
+          >
+            <span>{actionText}</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

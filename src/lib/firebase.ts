@@ -679,7 +679,7 @@ export async function fetchMarketingSettings(): Promise<MarketingSettings> {
     googleAdsEnabled: false,
     metaPixelId: "",
     metaPixelEnabled: false,
-    seoTitle: "NOME DA MARCA | Presentes Criativos & Design Autoral",
+    seoTitle: "glos. | Presentes Criativos & Design Autoral",
     seoDescription: "Curadoria autoral de presentes criativos, utilidades para casa, cozinha contemporânea, tecnologia e kits especiais feitos para surpreender.",
     seoKeywords: "presentes criativos, design autoral, kit presente, cafe gourmet, decoracao minimalista",
     ogImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=1200&auto=format&fit=crop&q=80",

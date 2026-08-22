@@ -167,7 +167,7 @@ export const StoreOperationsManager: React.FC<StoreOperationsManagerProps> = ({
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ex: NOME DA MARCA"
+                  placeholder="Ex: glos."
                   className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none font-semibold text-stone-900"
                 />
               </div>

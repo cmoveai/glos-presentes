@@ -20,6 +20,7 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { AccountPage } from "./pages/AccountPage";
 import { StaticPages } from "./pages/StaticPages";
 import { AdminPage } from "./pages/AdminPage";
+import { AppShell } from "./components/admin/AppShell";
 
 import { Product, ProductCategory, ProductOccasion } from "./types";
 import { BRAND_CONFIG } from "./config/brand";
@@ -54,36 +55,15 @@ function parseRouteFromLocation(): PageRoute {
     if (hash === "admin" || hash.startsWith("admin") || pageParam === "admin") {
       return { name: "admin" };
     }
-    // Check if admin was active before hard refresh
-    const adminActive = localStorage.getItem("ativva_admin_active");
-    if (adminActive === "true" && !hash && !pageParam) {
-      return { name: "admin" };
+    // Default to admin view for Glos Painel do Lojista
+    if (pageParam === "loja" || hash === "loja" || hash === "home") {
+      return { name: "home" };
     }
-
-    if (hash === "checkout" || pageParam === "checkout") {
-      return { name: "checkout" };
-    }
-    if (hash.startsWith("account") || pageParam === "account") {
-      const tabParam = searchParams.get("tab") || hash.split("/")[1];
-      const validTabs = ["overview", "orders", "favorites", "addresses", "profile", "coupons", "help"];
-      const tab = validTabs.includes(tabParam) ? (tabParam as any) : undefined;
-      return { name: "account", tab };
-    }
-    if (hash.startsWith("product/")) {
-      const slug = hash.replace("product/", "");
-      if (slug) return { name: "product", slug };
-    }
-    if (hash.startsWith("catalog")) {
-      return { name: "catalog" };
-    }
-    if (hash.startsWith("static/")) {
-      const pageId = hash.replace("static/", "") as any;
-      return { name: "static", pageId };
-    }
+    return { name: "admin" };
   } catch (e) {
     console.error("Route parsing error:", e);
   }
-  return { name: "home" };
+  return { name: "admin" };
 }
 
 function AppContent() {
@@ -192,6 +172,10 @@ function AppContent() {
     navigateTo({ name: "static", pageId });
   };
 
+  if (route.name === "admin") {
+    return <AppShell onOpenStorefront={() => navigateTo({ name: "home" })} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-100/50 text-stone-900 font-sans selection:bg-stone-900 selection:text-white">
       {/* GLOBAL HEADER */}
@@ -258,14 +242,6 @@ function AppContent() {
           />
         )}
 
-        {route.name === "admin" && (
-          <AdminPage
-            onNavigateHome={handleNavigateHome}
-            onNavigateProduct={handleNavigateProduct}
-            onNavigateCatalog={() => handleNavigateCatalog()}
-          />
-        )}
-
         {route.name === "static" && (
           <StaticPages
             key={route.pageId}
@@ -307,16 +283,14 @@ function AppContent() {
       />
 
       {/* FLOATING ADMIN QUICK ACCESS (VISIBLE FOR STORE OWNER) */}
-      {route.name !== "admin" && (
-        <button
-          onClick={handleNavigateAdmin}
-          className="fixed bottom-6 left-6 z-40 px-3.5 py-2 rounded-full bg-stone-900/90 hover:bg-stone-950 text-amber-400 border border-stone-700 shadow-xl flex items-center gap-2 text-xs font-bold transition-all hover:scale-105 backdrop-blur-xs"
-          title="Acessar Painel do Lojista"
-        >
-          <LayoutDashboard className="w-3.5 h-3.5 text-amber-400" />
-          <span>Painel Admin</span>
-        </button>
-      )}
+      <button
+        onClick={handleNavigateAdmin}
+        className="fixed bottom-6 left-6 z-40 px-3.5 py-2 rounded-full bg-[#004AAD] text-white border border-[#004AAD] shadow-md flex items-center gap-2 text-xs font-medium transition-all hover:bg-[#003884]"
+        title="Acessar Painel do Lojista"
+      >
+        <LayoutDashboard className="w-3.5 h-3.5" />
+        <span>Painel do Lojista (glos.)</span>
+      </button>
 
       {/* FLOATING WHATSAPP BUTTON */}
       <a

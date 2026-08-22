@@ -315,7 +315,7 @@ export async function submitOrder(orderData: Partial<Order>): Promise<{ success:
     },
     paymentMethod: orderData.paymentMethod || "pix",
     paymentDetails: orderData.paymentDetails || {
-      pixCode: "00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000520400005303986540410.005802BR5913NOME DA MARCA6009SAO PAULO62070503***6304E2CA",
+      pixCode: "00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000520400005303986540410.005802BR5915GLOS PRESENTES6009SAO PAULO62070503***6304E2CA",
       pixQrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020126580014BR.GOV.BCB.PIX",
       pixExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     },

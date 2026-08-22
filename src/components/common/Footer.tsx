@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "../../context/ToastContext";
 import { subscribeNewsletter } from "../../services/api";
+import { BrandLogo } from "../admin/BrandLogo";
 
 interface FooterProps {
   onNavigateStaticPage: (pageId: "sobre" | "trocas" | "privacidade" | "termos" | "ajuda" | "entregas" | "pagamentos") => void;
@@ -52,14 +53,7 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10 pb-12 border-b border-stone-800">
           {/* Column 1: Brand & Manifesto */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-white text-stone-950 flex items-center justify-center font-serif text-lg font-bold">
-                M
-              </div>
-              <span className="text-lg font-black tracking-tight text-white font-sans">
-                {BRAND_CONFIG.name}
-              </span>
-            </div>
+            <BrandLogo size="md" variant="light" />
 
             <p className="text-xs text-stone-400 leading-relaxed max-w-sm">
               {BRAND_CONFIG.description}

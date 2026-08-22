@@ -2,23 +2,48 @@
 
 @layer base {
   :root {
-    --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: 'Cormorant Garamond', Georgia, serif;
+    
+    /* Design Tokens - glos. Editorial Minimalista */
+    --color-bg-app: #E4E2DD;
+    --color-surface-card: #F4F3EF;
+    --color-panel-hover: #EEEDE8;
+    --color-border-hairline: #D6D3CC;
+    --color-text-primary: #272727;
+    --color-text-secondary: #6B6A64;
+    --color-text-tertiary: #9B998F;
+    --color-cobalt: #004AAD;
+    --color-positive: #0F7A4F;
+    --color-negative: #9B2C2C;
   }
 
   html,
   body {
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    letter-spacing: -0.01em;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 400;
+    background-color: #E4E2DD;
+    color: #272727;
+    -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    letter-spacing: -0.02em;
+  /* Only weights 400 and 500 allowed */
+  h1, h2, h3, h4, h5, h6, p, span, button, input, select, textarea, div, a {
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Tabular numbers for clean data alignment */
+  .tabular-nums, [data-tabular] {
+    font-variant-numeric: tabular-nums;
   }
 
   button, input, select, textarea {
     font-family: inherit;
   }
+}
+
+.font-logo-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
 /* Custom scrollbars for clean dashboards */

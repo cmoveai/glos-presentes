@@ -1274,6 +1274,63 @@ O texto deve ser dinâmico, direto, profissional e inspirador para o lojista com
   }
 });
 
+// POST /api/ai/product-draft - Generate emotional gift description and SEO copy
+app.post("/api/ai/product-draft", async (req, res) => {
+  try {
+    const { name, category, productType, customPhoto, customText } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    let description = `Um presente pensado nos mínimos detalhes para transformar momentos especiais em memórias afetivas. Produzido artesanalmente com materiais nobres e acabamento impecável, este item da linha ${category || "Glos"} combina sofisticação, delicadeza e carinho. Perfeito para presentear quem você ama em aniversários, celebrações ou como um gesto espontâneo de afeto.`;
+    let tagTitle = `${name || "Presente Especial"} | Glos Presentes`;
+    let metaDescription = `Compre ${name || "presentes criativos e personalizados"} com entrega rápida e acabamento artesanal na Glos Presentes.`;
+
+    if (apiKey && name) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Você é o copywriter sênior da "glos." (Glos Presentes), um e-commerce B2C brasileiro de presentes criativos, afetivos e personalizados (não corporativos).
+Gere um texto comercial afetivo e dados de SEO para o produto:
+- Nome do produto: "${name}"
+- Categoria: "${category || "Presentes Criativos"}"
+- Natureza: "${productType || "personalizavel"}" (personalização: ${customPhoto ? "com foto do cliente" : ""}, ${customText ? "com frase/nome gravado" : ""})
+
+Retorne EXCLUSIVAMENTE um objeto JSON válido (sem markdown, sem backticks):
+{
+  "description": "Texto descritivo apaixonante de 2 a 3 parágrafos curtos destacando a experiência de presentear com afeto, qualidade dos materiais e embalagem acolhedora.",
+  "tagTitle": "Título SEO para a tag <title> (máx 60 caracteres)",
+  "metaDescription": "Meta descrição atrativa para o Google (máx 155 caracteres)"
+}`;
+
+        const geminiResp = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: prompt,
+        });
+
+        const rawText = (geminiResp.text || "").trim();
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.description) description = parsed.description;
+          if (parsed.tagTitle) tagTitle = parsed.tagTitle;
+          if (parsed.metaDescription) metaDescription = parsed.metaDescription;
+        }
+      } catch (geminiErr) {
+        console.warn("Gemini product draft error, using affective fallback:", geminiErr);
+      }
+    }
+
+    return res.json({
+      success: true,
+      draft: {
+        description,
+        tagTitle,
+        metaDescription,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Erro ao gerar rascunho de produto" });
+  }
+});
+
 // Vite middleware in dev or static files in production
 async function startServer() {
   // Start autonomous cron-like scheduler for 09:00 daily WhatsApp executive report

@@ -47,6 +47,44 @@ export interface ProductSpecifications {
   capacity?: string;
 }
 
+export type ProductType = "simples" | "personalizavel" | "licenciado";
+
+export interface CustomizationOptions {
+  allowPhoto?: boolean;
+  allowName?: boolean;
+  allowMessage?: boolean;
+  allowColor?: boolean;
+  instructions?: string;
+  requirePhotoUpload?: boolean;
+}
+
+export interface LicensingInfo {
+  licensor?: string;
+  contractNumber?: string;
+  validUntil?: string;
+}
+
+export interface ProductFiscalInfo {
+  productionType?: "revenda" | "fabricacao_propria";
+  origin?: string;
+  ncm?: string;
+  gtin?: string;
+  mpn?: string;
+}
+
+export interface ProductPackaging {
+  weightKg?: number;
+  heightCm?: number;
+  widthCm?: number;
+  depthCm?: number;
+}
+
+export interface ProductSeo {
+  tagTitle?: string;
+  metaDescription?: string;
+  slug?: string;
+}
+
 export interface ProductCollection {
   id: string;
   name: string;
@@ -54,6 +92,47 @@ export interface ProductCollection {
   description: string;
   image?: string;
   featured?: boolean;
+}
+
+export interface ProductBrand {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl?: string;
+  active: boolean;
+  featured?: boolean;
+  tagTitle?: string;
+  metaDescription?: string;
+}
+
+export interface ProductGrade {
+  id: string;
+  name: string;
+  options: string[]; // ex: ["300ml", "500ml"] ou ["P", "M", "G"]
+  description?: string;
+}
+
+export interface SegmentedPriceRule {
+  id: string;
+  productId: string;
+  customerGroup: "padrao" | "vip" | "revendedor" | "corporativo";
+  region?: string;
+  price: number;
+  minQuantity?: number;
+  marginPercent?: number;
+}
+
+export interface ProductReview {
+  id: string;
+  productId: string;
+  productName: string;
+  customerName: string;
+  rating: number;
+  comment: string;
+  photoUrl?: string;
+  createdAt: string;
+  status: "aprovado" | "pendente" | "recusado";
 }
 
 export interface Product {
@@ -64,6 +143,11 @@ export interface Product {
   description: string;
   category: ProductCategory;
   categoryName: string;
+  productType?: ProductType;
+  customizationOptions?: CustomizationOptions;
+  licensingInfo?: LicensingInfo;
+  brandId?: string;
+  brandName?: string;
   collectionId?: string; // Coleção à qual o produto pertence
   collectionName?: string;
   occasions?: ProductOccasion[];
@@ -71,15 +155,26 @@ export interface Product {
   price: number;
   promotionalPrice?: number;
   costPrice?: number; // Custo unitário de aquisição/produção para DRE e lucro
+  priceOnDemand?: boolean; // Preço sob consulta
   installments: number;
   images: string[];
+  videoUrl?: string;
   variants?: ProductVariant[];
   stock: number;
+  manageStock?: boolean;
+  availability?: "pronta_entrega" | "sob_encomenda";
+  outOfStockAction?: "indisponivel" | "continuar_vendendo";
   sku: string;
+  fiscalInfo?: ProductFiscalInfo;
+  packaging?: ProductPackaging;
+  seo?: ProductSeo;
   specifications: ProductSpecifications;
   featured?: boolean;
   new?: boolean;
   bestseller?: boolean;
+  active?: boolean;
+  deleted?: boolean;
+  deletedAt?: string;
   isKit?: boolean;
   kitItems?: string[]; // Lista de itens incluídos no kit
   kitPackaging?: string; // Descrição da embalagem especial
@@ -186,20 +281,164 @@ export interface OrderStatusEvent {
   description?: string;
 }
 
+export type OrderType = "revenda" | "personalizado";
+
+export type OrderStepRevenda =
+  | "pago"
+  | "separar"
+  | "despachar"
+  | "entregue"
+  | "cancelado";
+
+export type OrderStepPersonalizado =
+  | "pago"
+  | "aguardando_arquivo"
+  | "arte_aprovacao"
+  | "em_producao"
+  | "pronto"
+  | "despachar"
+  | "entregue"
+  | "cancelado";
+
+export type OrderStep = OrderStepRevenda | OrderStepPersonalizado;
+
+export type ArtApprovalState =
+  | "aguardando_arquivo"
+  | "arquivo_recebido"
+  | "mockup_pronto"
+  | "aguardando_aprovacao"
+  | "ajuste_solicitado"
+  | "aprovado";
+
+export interface WhatsAppMessage {
+  id: string;
+  sender: "ia" | "cliente" | "lojista";
+  senderName?: string;
+  timestamp: string;
+  text: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "audio" | "video" | "document";
+  status?: "sent" | "delivered" | "read";
+  intentDetected?: "envio_arquivo" | "aprovacao" | "solicitacao_ajuste" | "duvida_prazo" | "saudacao" | "outro";
+  adjustmentNotes?: string;
+}
+
+export interface ArtApprovalEvent {
+  id: string;
+  state: ArtApprovalState;
+  timestamp: string;
+  actor: "ia" | "cris" | "cliente" | "sistema";
+  description: string;
+}
+
+export interface ArtApprovalSession {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  itemId: string;
+  productName: string;
+  productImage: string;
+  customerName: string;
+  customerPhone: string;
+  state: ArtApprovalState;
+  customerUploadedFiles: CustomerFile[];
+  customerTextDeclaration?: string;
+  customerSongOrUrl?: string;
+  mockupUrl?: string;
+  mockupGeneratedAt?: string;
+  mockupUploadedBy?: string;
+  rejectionReason?: string;
+  rejectionCount: number;
+  conversationThread: WhatsAppMessage[];
+  stateHistory: ArtApprovalEvent[];
+  createdAt: string;
+  updatedAt: string;
+  requiresCrisAction: boolean;
+}
+
+export interface CustomerFile {
+  id: string;
+  name: string;
+  url: string;
+  type: "imagem" | "audio" | "video" | "texto" | "outro";
+  size?: string;
+  uploadedAt?: string;
+}
+
+export interface ItemPersonalization {
+  customerFiles: CustomerFile[];
+  customText?: string;
+  mockupUrl?: string;
+  qrLink?: string;
+  qrApplied?: boolean;
+  approvalStatus: "aguardando_envio" | "aguardando_aprovacao" | "aprovado" | "reprovado" | ArtApprovalState;
+  approvalDate?: string;
+  rejectionReason?: string;
+  notes?: string;
+  interactivePlayType?: "musica_spotify" | "video_afetivo" | "audio_voz" | "declaracao";
+  conversationThread?: WhatsAppMessage[];
+  approvalSessionId?: string;
+}
+
+export interface OrderItem {
+  id: string;
+  productId: string;
+  name: string;
+  sku: string;
+  image: string;
+  price: number;
+  costPrice?: number;
+  quantity: number;
+  variantName?: string;
+  productType?: "simples" | "licenciado" | "personalizavel";
+  personalization?: ItemPersonalization;
+}
+
+export interface InternalOrderNote {
+  id: string;
+  text: string;
+  date: string;
+  author: string;
+}
+
+export interface OrderActionRequired {
+  needed: boolean;
+  reason: string;
+  urgency: "baixa" | "media" | "alta";
+}
+
 export interface Order {
   id: string;
+  orderNumber?: string;
   createdAt: string;
+  orderType?: OrderType;
+  currentStep?: OrderStep;
   status: OrderStatus;
   statusHistory: OrderStatusEvent[];
-  items: OrderItemSummary[];
+  stepHistory?: Array<{
+    step: OrderStep;
+    label: string;
+    date: string;
+    updatedBy?: string;
+    note?: string;
+  }>;
+  items: (OrderItemSummary & {
+    id?: string;
+    productType?: "simples" | "licenciado" | "personalizavel";
+    costPrice?: number;
+    personalization?: ItemPersonalization;
+  })[];
   subtotal: number;
   shippingPrice: number;
   discount: number;
   total: number;
+  costTotal?: number;
+  profitTotal?: number;
   couponCode?: string;
   shippingOption: ShippingOption;
   shippingAddress: Address;
-  paymentMethod: "pix" | "credit_card" | "boleto";
+  paymentMethod: "pix" | "credit_card" | "boleto" | "link_pagamento";
+  paymentStatus?: "pago" | "pendente" | "recusado" | "estornado";
   paymentDetails: {
     installments?: number;
     cardLast4?: string;
@@ -213,14 +452,86 @@ export interface Order {
     isLiveGateway?: boolean;
   };
   trackingCode?: string;
+  nfeStatus?: "nao_emitida" | "emitida" | "cancelada";
+  nfeKey?: string;
+  nfeNumber?: string;
+  nfePdfUrl?: string;
   customer: {
     name: string;
     email: string;
     cpf: string;
     phone: string;
+    personType?: "PF" | "PJ";
+    totalOrdersCount?: number;
   };
   giftWrap?: boolean;
   giftCardMessage?: string;
+  internalNotes?: InternalOrderNote[];
+  actionRequired?: OrderActionRequired;
+}
+
+export interface CartLinkItem {
+  productId: string;
+  productName: string;
+  sku?: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  variant?: string;
+  customizationNotes?: string;
+}
+
+export interface CartLink {
+  id: string;
+  title: string;
+  code: string;
+  targetCustomerName?: string;
+  targetPhone?: string;
+  items: CartLinkItem[];
+  discountPercent?: number;
+  discountValue?: number;
+  couponCode?: string;
+  subtotal: number;
+  total: number;
+  url: string;
+  createdAt: string;
+  expiresAt?: string;
+  clicksCount: number;
+  converted: boolean;
+  status: "ativo" | "expirado" | "convertido";
+}
+
+export interface AbandonedCart {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  items: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image: string;
+    variantName?: string;
+  }>;
+  subtotal: number;
+  shippingPrice: number;
+  discount?: number;
+  total: number;
+  abandonedAt: string;
+  timeAgo: string;
+  stepReached?: "cart" | "email" | "address" | "shipping" | "payment";
+  status?: "abandoned" | "contacted" | "recovered" | "expired";
+  recoveryStatus: "nao_contatado" | "mensagem_enviada" | "recuperado" | "perdido";
+  recoveryDiscountCode?: string;
+  suggestedDiscountCode?: string;
+  lastContactDate?: string;
+  lastContactedAt?: string;
+  recoveryAttemptsCount?: number;
+  recoveredOrderId?: string;
+  recoveryNote?: string;
 }
 
 export interface UserProfile {
@@ -294,26 +605,6 @@ export interface StoreOperationsSettings {
   // Políticas
   returnPolicyDays: number;
   warrantyDays: number;
-}
-
-export interface AbandonedCart {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  items: CartItem[];
-  subtotal: number;
-  shippingPrice?: number;
-  discount?: number;
-  total: number;
-  stepReached: "cart" | "email" | "address" | "shipping" | "payment";
-  status: "abandoned" | "contacted" | "recovered" | "expired";
-  recoveredOrderId?: string;
-  lastContactedAt?: string;
-  suggestedDiscountCode?: string;
-  recoveryNote?: string;
 }
 
 export interface UpsellSuggestion {
