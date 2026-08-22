@@ -1,0 +1,6 @@
+{
+  "name": "NOME DA MARCA - E-commerce de Presentes e Produtos",
+  "description": "E-commerce moderno B2C de presentes criativos, cozinha, eletrônicos, casa, decoração e kits especiais para o consumidor final.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

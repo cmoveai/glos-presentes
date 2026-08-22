@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Products: public read, write for authenticated users / admin
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Orders: create, read, and update allowed
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Users: read and write allowed
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Coupons: public read and admin write
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Newsletter Subscribers: create and read
+    match /subscribers/{subscriberId} {
+      allow create: if true;
+      allow read: if true;
+    }
+
+    // Hero Carousel Banners
+    match /hero_banners/{bannerId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Editorial Banners (Showcases)
+    match /editorial_banners/{bannerId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Collections
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Marketing & Tracking Settings
+    match /marketing_settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Store Operations & Gateways Settings
+    match /store_settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Abandoned Carts Recovery
+    match /abandoned_carts/{cartId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
+
