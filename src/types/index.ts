@@ -583,6 +583,22 @@ export interface UserProfile {
   phone?: string;
   cpf?: string;
   addresses: Address[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  cpf?: string;
+  createdAt: string;
+  addresses: Address[];
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate?: string;
+  orders: Order[];
 }
 
 export interface HeroCampaign {

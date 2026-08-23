@@ -318,11 +318,69 @@ export async function attachOrderMockupFirestore(
  */
 export async function saveUserProfile(user: UserProfile): Promise<void> {
   try {
-    const userDoc = doc(db, "users", user.id);
+    const userDoc = doc(db, "clientes", user.id);
     await setDoc(userDoc, user, { merge: true });
+    // Also mirror to users for backward compatibility
+    const legacyDoc = doc(db, "users", user.id);
+    await setDoc(legacyDoc, user, { merge: true });
   } catch (error) {
     console.warn("Failed to sync user profile with Firestore:", error);
   }
+}
+
+/**
+ * Fetch all customers/clients from Firestore (clientes and users collections).
+ */
+export async function fetchAllCustomersAdmin(): Promise<UserProfile[]> {
+  const clientsMap = new Map<string, UserProfile>();
+
+  // 1. Query `clientes` collection
+  try {
+    const clientesRef = collection(db, "clientes");
+    const snap = await getDocs(clientesRef);
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as UserProfile;
+      const key = data.id || docSnap.id;
+      clientsMap.set(key, { ...data, id: key });
+    });
+  } catch (err) {
+    console.warn("Firestore fetch clientes fallback:", err);
+  }
+
+  // 2. Query `users` collection
+  try {
+    const usersRef = collection(db, "users");
+    const snap = await getDocs(usersRef);
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as UserProfile;
+      const key = data.id || docSnap.id;
+      if (!clientsMap.has(key)) {
+        clientsMap.set(key, { ...data, id: key });
+      } else {
+        const existing = clientsMap.get(key)!;
+        clientsMap.set(key, {
+          ...existing,
+          ...data,
+          addresses: data.addresses && data.addresses.length > 0 ? data.addresses : existing.addresses,
+        });
+      }
+    });
+  } catch (err) {
+    console.warn("Firestore fetch users fallback:", err);
+  }
+
+  // 3. Fallback to local storage if user stored
+  try {
+    const localUser = localStorage.getItem("ndm_user_profile") || localStorage.getItem("glos_user_profile");
+    if (localUser) {
+      const parsed = JSON.parse(localUser);
+      if (parsed && parsed.id && !clientsMap.has(parsed.id)) {
+        clientsMap.set(parsed.id, parsed);
+      }
+    }
+  } catch {}
+
+  return Array.from(clientsMap.values());
 }
 
 /**

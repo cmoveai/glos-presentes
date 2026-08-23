@@ -1613,11 +1613,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             )}
 
             {/* ========================================================================= */}
-            {/* TAB 1.2: CLIENTES (NUVEMSHOP / SHOPIFY CRM) */}
+            {/* TAB 1.2: CLIENTES (PAINEL DO LOJISTA GLOS) */}
             {/* ========================================================================= */}
             {activeTab === "customers" && (
               <CustomerManager
                 orders={orders}
+                onViewOrder={(order) => {
+                  setSelectedOrder(order);
+                  setActiveTab("orders");
+                }}
                 onNavigateToOrders={() => setActiveTab("orders")}
               />
             )}
