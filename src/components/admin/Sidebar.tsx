@@ -31,6 +31,7 @@ import {
   PanelLeft,
   ExternalLink,
   CheckCircle2,
+  Building2,
 } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 import { SidebarGroup } from "./SidebarGroup";
@@ -227,14 +228,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
           />
           <SidebarItem
-            id="clientes"
-            label="Clientes"
-            icon={Users}
-            active={activeSection.id === "clientes"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("clientes", undefined, "Clientes", undefined, "Gestão & Operação")}
-          />
-          <SidebarItem
             id="financeiro"
             label="Financeiro"
             icon={DollarSign}
@@ -260,7 +253,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </SidebarGroup>
 
-        {/* GRUPO 3: Marketing */}
+        {/* GRUPO 3: Cadastro */}
+        <SidebarGroup label="Cadastro" isCollapsed={isCollapsed}>
+          <SidebarItem
+            id="clientes"
+            label="Clientes"
+            icon={Users}
+            active={activeSection.id === "clientes"}
+            isCollapsed={isCollapsed}
+            onSelect={() => onSelectSection("clientes", undefined, "Clientes", undefined, "Cadastro")}
+          />
+          <SidebarItem
+            id="fornecedores"
+            label="Fornecedores"
+            icon={Building2}
+            active={activeSection.id === "fornecedores"}
+            isCollapsed={isCollapsed}
+            onSelect={() => onSelectSection("fornecedores", undefined, "Fornecedores", undefined, "Cadastro")}
+          />
+        </SidebarGroup>
+
+        {/* GRUPO 4: Marketing */}
         <SidebarGroup label="Marketing" isCollapsed={isCollapsed}>
           <SidebarItem
             id="promocoes"

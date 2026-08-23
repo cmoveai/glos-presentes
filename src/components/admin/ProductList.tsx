@@ -279,7 +279,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                         </div>
                       </td>
 
-                      {/* Nome / Categoria */}
+                      {/* Nome / Categoria / Fornecedor */}
                       <td className="py-3 px-4 max-w-[260px]">
                         <button
                           onClick={() => onEditProduct(product)}
@@ -287,9 +287,13 @@ export const ProductList: React.FC<ProductListProps> = ({
                         >
                           {product.name}
                         </button>
-                        <span className="text-[11px] text-[#9B998F] block truncate mt-0.5">
-                          {product.categoryName || product.category}
-                        </span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#9B998F] truncate mt-0.5">
+                          <span>{product.categoryName || product.category}</span>
+                          <span>•</span>
+                          <span className="text-[#6B6A64]">
+                            {product.fornecedorNome || "Fabricação Própria (Glos)"}
+                          </span>
+                        </div>
                       </td>
 
                       {/* SKU */}

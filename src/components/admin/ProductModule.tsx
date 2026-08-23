@@ -18,7 +18,9 @@ import {
   ProductGrade,
   SegmentedPriceRule,
   ProductReview,
+  Supplier,
 } from "../../types";
+import { fetchSuppliers, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA } from "../../lib/firebase";
 import {
   getProductsFromStorage,
   saveProductsToStorage,
@@ -57,6 +59,16 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
     getSegmentedRulesFromStorage()
   );
   const [reviews, setReviews] = useState<ProductReview[]>(() => getReviewsFromStorage());
+  const [suppliers, setSuppliers] = useState<Supplier[]>([DEFAULT_SUPPLIER_FABRICACAO_PROPRIA]);
+
+  // Carrega fornecedores do Firestore
+  useEffect(() => {
+    fetchSuppliers()
+      .then((list) => {
+        if (list && list.length > 0) setSuppliers(list);
+      })
+      .catch((err) => console.warn("Erro ao buscar fornecedores:", err));
+  }, []);
 
   // Estado de edição de produto
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -255,6 +267,7 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
           product={editingProduct}
           categories={categories}
           brands={brands}
+          suppliers={suppliers}
           onSave={handleSaveProduct}
           onCancel={() => {
             setIsCreatingNew(false);

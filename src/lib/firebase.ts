@@ -24,7 +24,7 @@ import {
   uploadBytes,
 } from "firebase/storage";
 import firebaseConfig from "../../firebase-applet-config.json";
-import { Product, Order, OrderStatus, UserProfile, Coupon, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings, CustomerFile } from "../types";
+import { Product, Order, OrderStatus, UserProfile, Coupon, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings, CustomerFile, Supplier } from "../types";
 import { PRODUCTS } from "../data/products";
 import { CATEGORIES } from "../data/categories";
 import { HERO_CAMPAIGNS, EDITORIAL_BANNERS } from "../data/banners";
@@ -1273,6 +1273,176 @@ export async function saveStoreOperationsSettingsAdmin(settings: StoreOperations
   } catch (error) {
     console.error("Failed to save operations settings to Firestore:", error);
     return false;
+  }
+}
+
+/**
+ * Fornecedor Padrão: Fabricação Própria (Glos)
+ */
+export const DEFAULT_SUPPLIER_FABRICACAO_PROPRIA: Supplier = {
+  id: "forn-glos-propria",
+  cnpj: "00.000.000/0001-00",
+  razaoSocial: "Glos Presentes e Personalizações Ltda",
+  nomeFantasia: "Fabricação Própria (Glos)",
+  situacaoCadastral: "ATIVA",
+  logradouro: "Av. Paulista",
+  numero: "1000",
+  bairro: "Bela Vista",
+  municipio: "São Paulo",
+  uf: "SP",
+  cep: "01310-100",
+  contatoNome: "Atelier Glos",
+  contatoWhatsapp: "(11) 98765-4321",
+  contatoEmail: "atelier@glos.com.br",
+  prazoEntregaDias: 1,
+  condicoesPagamento: "Produção Interna",
+  observacoes: "Fornecedor padrão para itens produzidos, personalizados ou montados diretamente no atelier Glos.",
+  ativo: true,
+  isDefaultFabricacaoPropria: true,
+  createdAt: new Date().toISOString(),
+};
+
+/**
+ * Busca todos os fornecedores da coleção `fornecedores` no Firestore.
+ * Se vazia, inclui o padrão "Fabricação Própria (Glos)".
+ */
+export async function fetchSuppliers(): Promise<Supplier[]> {
+  try {
+    const colRef = collection(db, "fornecedores");
+    const snapshot = await getDocs(colRef);
+    if (!snapshot.empty) {
+      const list = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Supplier));
+      // Garante que o fornecedor padrão existe na lista
+      const hasDefault = list.some((s) => s.id === DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.id || s.isDefaultFabricacaoPropria);
+      if (!hasDefault) {
+        return [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA, ...list];
+      }
+      return list;
+    }
+    // Se a coleção estiver vazia, salva o padrão no Firestore e retorna
+    try {
+      const defaultDoc = doc(db, "fornecedores", DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.id);
+      await setDoc(defaultDoc, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA);
+    } catch (seedErr) {
+      console.warn("Could not seed default supplier in Firestore:", seedErr);
+    }
+    return [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA];
+  } catch (error) {
+    console.warn("Error loading suppliers from Firestore, using local fallback:", error);
+    try {
+      const local = localStorage.getItem("glos_fornecedores");
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA];
+  }
+}
+
+/**
+ * Salva ou atualiza um fornecedor no Firestore (`fornecedores`) e local cache.
+ */
+export async function saveSupplier(supplier: Supplier): Promise<boolean> {
+  try {
+    const docRef = doc(db, "fornecedores", supplier.id);
+    await setDoc(docRef, { ...supplier, updatedAt: new Date().toISOString() }, { merge: true });
+    // Backup local
+    try {
+      const local = localStorage.getItem("glos_fornecedores");
+      const currentList: Supplier[] = local ? JSON.parse(local) : [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA];
+      const exists = currentList.findIndex((s) => s.id === supplier.id);
+      let updated: Supplier[];
+      if (exists >= 0) {
+        updated = [...currentList];
+        updated[exists] = supplier;
+      } else {
+        updated = [supplier, ...currentList];
+      }
+      localStorage.setItem("glos_fornecedores", JSON.stringify(updated));
+    } catch {}
+    return true;
+  } catch (error) {
+    console.error("Failed to save supplier to Firestore:", error);
+    // Fallback local
+    try {
+      const local = localStorage.getItem("glos_fornecedores");
+      const currentList: Supplier[] = local ? JSON.parse(local) : [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA];
+      const exists = currentList.findIndex((s) => s.id === supplier.id);
+      let updated: Supplier[];
+      if (exists >= 0) {
+        updated = [...currentList];
+        updated[exists] = supplier;
+      } else {
+        updated = [supplier, ...currentList];
+      }
+      localStorage.setItem("glos_fornecedores", JSON.stringify(updated));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Remove um fornecedor do Firestore (`fornecedores`).
+ */
+export async function deleteSupplier(supplierId: string): Promise<boolean> {
+  if (supplierId === DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.id) {
+    throw new Error("O fornecedor 'Fabricação Própria (Glos)' é o padrão do sistema e não pode ser excluído.");
+  }
+  try {
+    const docRef = doc(db, "fornecedores", supplierId);
+    await deleteDoc(docRef);
+    try {
+      const local = localStorage.getItem("glos_fornecedores");
+      if (local) {
+        const currentList: Supplier[] = JSON.parse(local);
+        const filtered = currentList.filter((s) => s.id !== supplierId);
+        localStorage.setItem("glos_fornecedores", JSON.stringify(filtered));
+      }
+    } catch {}
+    return true;
+  } catch (error) {
+    console.error("Failed to delete supplier from Firestore:", error);
+    try {
+      const local = localStorage.getItem("glos_fornecedores");
+      if (local) {
+        const currentList: Supplier[] = JSON.parse(local);
+        const filtered = currentList.filter((s) => s.id !== supplierId);
+        localStorage.setItem("glos_fornecedores", JSON.stringify(filtered));
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+}
+
+/**
+ * Consulta CNPJ através da API do servidor com fallback BrasilAPI/ReceitaWS.
+ */
+export async function lookupCnpj(cnpj: string): Promise<{ success: boolean; data?: Partial<Supplier>; error?: string }> {
+  const cleaned = cnpj.replace(/\D/g, "");
+  if (cleaned.length !== 14) {
+    return { success: false, error: "CNPJ deve conter 14 dígitos numéricos." };
+  }
+
+  try {
+    const res = await fetch(`/api/cnpj/${cleaned}`);
+    const json = await res.json();
+    if (res.ok && json.success && json.data) {
+      return { success: true, data: json.data };
+    }
+    return {
+      success: false,
+      error: json.error || "Não foi possível localizar os dados deste CNPJ automaticamente.",
+    };
+  } catch (err: any) {
+    console.warn("Client CNPJ lookup error:", err);
+    return {
+      success: false,
+      error: "Falha de conexão com os serviços de consulta de CNPJ. Preencha os campos manualmente.",
+    };
   }
 }
 

@@ -135,6 +135,34 @@ export interface ProductReview {
   status: "aprovado" | "pendente" | "recusado";
 }
 
+export interface Supplier {
+  id: string;
+  cnpj: string;
+  razaoSocial: string;
+  nomeFantasia: string;
+  situacaoCadastral: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  cep?: string;
+  telefone?: string;
+  email?: string;
+  // Campos comerciais complementares
+  contatoNome?: string;
+  contatoWhatsapp?: string;
+  contatoEmail?: string;
+  prazoEntregaDias?: number;
+  condicoesPagamento?: string;
+  observacoes?: string;
+  ativo: boolean;
+  isDefaultFabricacaoPropria?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -148,6 +176,8 @@ export interface Product {
   licensingInfo?: LicensingInfo;
   brandId?: string;
   brandName?: string;
+  fornecedorId?: string;
+  fornecedorNome?: string;
   collectionId?: string; // Coleção à qual o produto pertence
   collectionName?: string;
   occasions?: ProductOccasion[];

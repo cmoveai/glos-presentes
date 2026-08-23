@@ -8,6 +8,9 @@ import { InsightBanner } from "./InsightBanner";
 import { InicioDashboard } from "./InicioDashboard";
 import { ProductModule } from "./ProductModule";
 import { OrderModule } from "./OrderModule";
+import { CustomerManager } from "./CustomerManager";
+import { SupplierManager } from "./SupplierManager";
+import { getProductsFromStorage } from "../../services/productService";
 import { Sparkles, Layers, CheckCircle2 } from "lucide-react";
 import { BRAND_CONFIG } from "../../config/brand";
 
@@ -157,6 +160,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                   handleSelectSection("vendas", subId, "Vendas", undefined, "Gestão & Operação");
                 }}
               />
+            ) : activeSection.id === "clientes" ? (
+              <CustomerManager
+                orders={[]}
+                onNavigateToOrders={() => {
+                  handleSelectSection("vendas", "listar", "Vendas", "Listar pedidos", "Gestão & Operação");
+                }}
+              />
+            ) : activeSection.id === "fornecedores" ? (
+              <SupplierManager products={getProductsFromStorage()} />
             ) : (
               <div className="space-y-6">
                 <PageHeader

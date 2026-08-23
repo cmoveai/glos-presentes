@@ -24,15 +24,18 @@ import {
   ProductBrand,
   CustomizationOptions,
   LicensingInfo,
+  Supplier,
 } from "../../types";
 import { Card } from "./Card";
 import { PricingCalculator } from "./PricingCalculator";
 import { generateProductDraft } from "../../services/productService";
+import { fetchSuppliers, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA } from "../../lib/firebase";
 
 interface ProductFormProps {
   product?: Product | null;
   categories: CategoryInfo[];
   brands: ProductBrand[];
+  suppliers?: Supplier[];
   onSave: (productData: Partial<Product>) => void;
   onCancel: () => void;
 }
@@ -46,6 +49,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   product,
   categories,
   brands,
+  suppliers = [],
   onSave,
   onCancel,
 }) => {
@@ -125,10 +129,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   );
   const [origin, setOrigin] = useState(product?.fiscalInfo?.origin || "0 - Nacional");
 
-  // 8) Organização
+  // 8) Organização & Fornecedor
   const [categoryId, setCategoryId] = useState(product?.category || "kits-presenteaveis");
   const [brandId, setBrandId] = useState(product?.brandId || "brand-glos");
   const [collectionName, setCollectionName] = useState(product?.collectionName || "Linha Afeto & Memórias");
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>(
+    suppliers && suppliers.length > 0 ? suppliers : [DEFAULT_SUPPLIER_FABRICACAO_PROPRIA]
+  );
+  const [fornecedorId, setFornecedorId] = useState<string>(
+    product?.fornecedorId || DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.id
+  );
+
+  // Carrega fornecedores se a prop não foi passada ou vier vazia
+  useEffect(() => {
+    if (suppliers && suppliers.length > 0) {
+      setSuppliersList(suppliers);
+    } else {
+      fetchSuppliers()
+        .then((list) => {
+          if (list && list.length > 0) {
+            setSuppliersList(list);
+          }
+        })
+        .catch((e) => console.warn("Erro ao buscar fornecedores para o produto:", e));
+    }
+  }, [suppliers]);
 
   // 9) SEO
   const [tagTitle, setTagTitle] = useState(
@@ -196,6 +221,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
     const selectedCategoryObj = categories.find((c) => c.id === categoryId);
     const selectedBrandObj = brands.find((b) => b.id === brandId);
+    const selectedSupplierObj = suppliersList.find((s) => s.id === fornecedorId);
+    const finalFornecedorId = fornecedorId || DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.id;
+    const finalFornecedorNome =
+      selectedSupplierObj?.nomeFantasia ||
+      selectedSupplierObj?.razaoSocial ||
+      DEFAULT_SUPPLIER_FABRICACAO_PROPRIA.nomeFantasia;
 
     const payload: Partial<Product> = {
       id: product?.id || `prod-${Date.now()}`,
@@ -207,6 +238,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       categoryName: selectedCategoryObj?.name || "Presentes",
       brandId,
       brandName: selectedBrandObj?.name || "glos. atelier",
+      fornecedorId: finalFornecedorId,
+      fornecedorNome: finalFornecedorNome,
       productType,
       customizationOptions:
         productType === "personalizavel"
@@ -996,14 +1029,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            8. Organize na Loja (Categoria, Marca, Coleção)
+            8. Organize na Loja (Categoria, Marca, Fornecedor, Coleção)
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
-            Estruture onde o produto aparece no catálogo da Glos
+            Estruture onde o produto aparece no catálogo da Glos e qual parceiro fornece o item
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block text-[11px] text-[#6B6A64] mb-1">
               Categoria Principal *
@@ -1033,6 +1066,23 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] text-[#6B6A64] mb-1">
+              Fornecedor / Origem *
+            </label>
+            <select
+              value={fornecedorId}
+              onChange={(e) => setFornecedorId(e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] focus:outline-none focus:border-[#004AAD]"
+            >
+              {suppliersList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nomeFantasia || s.razaoSocial} {s.isDefaultFabricacaoPropria ? "(Padrão Glos)" : ""}
                 </option>
               ))}
             </select>

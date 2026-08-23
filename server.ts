@@ -941,6 +941,108 @@ app.get("/api/cep/:cep", async (req, res) => {
   });
 });
 
+// API: CNPJ Company Lookup (BrasilAPI with ReceitaWS fallback)
+app.get("/api/cnpj/:cnpj", async (req, res) => {
+  const { cnpj } = req.params;
+  const cleanCnpj = (cnpj || "").replace(/\D/g, "");
+
+  if (!cleanCnpj || cleanCnpj.length !== 14) {
+    return res.status(400).json({
+      success: false,
+      error: "CNPJ inválido. O CNPJ deve conter exatamente 14 dígitos numéricos.",
+    });
+  }
+
+  // 1) Tentativa primária: BrasilAPI
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`, {
+      signal: controller.signal,
+      headers: { "User-Agent": "GlosAdmin/1.0" },
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && (data.razao_social || data.nome_fantasia || data.cnpj)) {
+        const phone = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean).join(" / ");
+        const street = [data.descricao_tipo_de_logradouro, data.logradouro].filter(Boolean).join(" ") || data.logradouro || "";
+
+        return res.json({
+          success: true,
+          source: "brasilapi",
+          data: {
+            cnpj: cleanCnpj,
+            razaoSocial: data.razao_social || data.nome_fantasia || "",
+            nomeFantasia: data.nome_fantasia || data.razao_social || "",
+            situacaoCadastral: data.descricao_situacao_cadastral || data.situacao_cadastral || "ATIVA",
+            logradouro: street,
+            numero: data.numero || "",
+            complemento: data.complemento || "",
+            bairro: data.bairro || "",
+            municipio: data.municipio || "",
+            uf: (data.uf || "").toUpperCase(),
+            cep: (data.cep || "").replace(/\D/g, ""),
+            email: (data.email || "").toLowerCase(),
+            telefone: phone,
+            cnae: data.cnae_fiscal_descricao || "",
+          },
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn("BrasilAPI CNPJ lookup failed or timed out:", err.message || err);
+  }
+
+  // 2) Tentativa secundária: ReceitaWS fallback
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch(`https://www.receitaws.com.br/v1/cnpj/${cleanCnpj}`, {
+      signal: controller.signal,
+      headers: { "User-Agent": "GlosAdmin/1.0" },
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.status !== "ERROR") {
+        return res.json({
+          success: true,
+          source: "receitaws",
+          data: {
+            cnpj: cleanCnpj,
+            razaoSocial: data.nome || data.fantasia || "",
+            nomeFantasia: data.fantasia || data.nome || "",
+            situacaoCadastral: data.situacao || "ATIVA",
+            logradouro: data.logradouro || "",
+            numero: data.numero || "",
+            complemento: data.complemento || "",
+            bairro: data.bairro || "",
+            municipio: data.municipio || "",
+            uf: (data.uf || "").toUpperCase(),
+            cep: (data.cep || "").replace(/\D/g, ""),
+            email: (data.email || "").toLowerCase(),
+            telefone: data.telefone || "",
+            cnae: data.atividade_principal?.[0]?.text || "",
+          },
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn("ReceitaWS CNPJ fallback failed or timed out:", err.message || err);
+  }
+
+  // Se ambas falharem, retorna mensagem amigável para preenchimento manual
+  return res.status(404).json({
+    success: false,
+    error: "Não foi possível localizar os dados deste CNPJ automaticamente. Você pode preencher os campos manualmente.",
+  });
+});
+
 // API: Calculate shipping simulation with regional tariffs and weight
 app.post("/api/shipping/calculate", async (req, res) => {
   const { cep, subtotal } = req.body;
