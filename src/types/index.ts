@@ -371,6 +371,10 @@ export interface ArtApprovalSession {
   mockupGeneratedAt?: string;
   mockupUploadedBy?: string;
   rejectionReason?: string;
+  comentarioAjuste?: string;
+  qrLink?: string;
+  qrApplied?: boolean;
+  isInteractiveProduct?: boolean;
   rejectionCount: number;
   conversationThread: WhatsAppMessage[];
   stateHistory: ArtApprovalEvent[];
@@ -449,6 +453,9 @@ export interface Order {
   comentarioAjuste?: string;
   dataSolicitacaoAjuste?: string;
   mockupUrl?: string;
+  qrLink?: string;
+  qrApplied?: boolean;
+  qrAplicado?: boolean;
   statusHistory: OrderStatusEvent[];
   stepHistory?: Array<{
     step: OrderStep;

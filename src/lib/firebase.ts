@@ -226,6 +226,94 @@ export async function updateOrderMockupApprovalFirestore(
 }
 
 /**
+ * Admin: Attach art mockup and send for customer approval in Firestore.
+ */
+export async function attachOrderMockupFirestore(
+  orderId: string,
+  mockupUrl: string,
+  qrLink?: string,
+  qrApplied?: boolean,
+  customNote?: string
+): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+  try {
+    const orderDoc = doc(db, "orders", orderId);
+    const snap = await getDoc(orderDoc);
+
+    const updatePayload: any = {
+      mockupUrl,
+      aprovacaoMockup: "aguardando_aprovacao",
+      statusPedido: "aguardando_aprovacao",
+      currentStep: "arte_aprovacao",
+      updatedAt: nowIso,
+    };
+
+    if (qrLink !== undefined) {
+      updatePayload.qrLink = qrLink;
+      updatePayload.qrApplied = qrApplied ?? true;
+      updatePayload.qrAplicado = qrApplied ?? true;
+    }
+
+    if (snap.exists()) {
+      const existing = snap.data() as Order;
+      const prevAjuste = existing.comentarioAjuste;
+      const newEvent = {
+        status: (existing.status || "EM_SEPARACAO") as any,
+        label: "Mockup Enviado para Aprovação",
+        date: nowIso,
+        description: prevAjuste
+          ? `Glos anexou nova prova visual após ajuste ("${prevAjuste}"). Enviado para validação do cliente.`
+          : `Glos anexou o mockup da arte montada no Sublima e enviou para aprovação do cliente.`,
+      };
+      updatePayload.statusHistory = [...(existing.statusHistory || []), newEvent];
+
+      // Update items personalization
+      if (Array.isArray(existing.items)) {
+        updatePayload.items = existing.items.map((it) => {
+          if (it.personalization || it.requerArquivo || (it as any).natureza === "personalizavel") {
+            return {
+              ...it,
+              mockupUrl,
+              personalization: {
+                ...(it.personalization || {}),
+                mockupUrl,
+                approvalStatus: "aguardando_aprovacao",
+                qrLink: qrLink ?? it.personalization?.qrLink,
+                qrApplied: qrApplied ?? it.personalization?.qrApplied,
+                notes: customNote || it.personalization?.notes,
+              },
+            };
+          }
+          return it;
+        });
+      }
+
+      await updateDoc(orderDoc, updatePayload);
+    } else {
+      await setDoc(orderDoc, updatePayload, { merge: true });
+    }
+
+    // Sync localStorage
+    try {
+      const saved = localStorage.getItem("ndm_user_orders");
+      if (saved) {
+        const list: Order[] = JSON.parse(saved);
+        const idx = list.findIndex((o) => o.id === orderId);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...updatePayload };
+          localStorage.setItem("ndm_user_orders", JSON.stringify(list));
+        }
+      }
+    } catch {}
+
+    return true;
+  } catch (err) {
+    console.warn("Firestore attachOrderMockup fallback:", err);
+    return false;
+  }
+}
+
+/**
  * Save or update user profile in Firestore.
  */
 export async function saveUserProfile(user: UserProfile): Promise<void> {

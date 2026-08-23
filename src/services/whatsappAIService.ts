@@ -658,10 +658,12 @@ export const saveApprovalSessionsToStorage = (
  */
 export const uploadMockupAndTriggerAI = (
   sessionId: string,
-  mockupUrl: string
+  mockupUrl: string,
+  qrLink?: string,
+  qrApplied?: boolean
 ): ArtApprovalSession | null => {
   const sessions = getApprovalSessionsFromStorage();
-  const sessionIndex = sessions.findIndex((s) => s.id === sessionId);
+  const sessionIndex = sessions.findIndex((s) => s.id === sessionId || s.orderId === sessionId || s.orderNumber === sessionId);
   if (sessionIndex === -1) return null;
 
   const current = sessions[sessionIndex];
@@ -685,13 +687,17 @@ export const uploadMockupAndTriggerAI = (
     status: "delivered",
   };
 
+  const hadAdjustment = Boolean(current.rejectionReason || current.comentarioAjuste);
+
   const updated: ArtApprovalSession = {
     ...current,
     state: "aguardando_aprovacao",
     requiresCrisAction: false,
     mockupUrl,
+    qrLink: qrLink !== undefined ? qrLink : current.qrLink,
+    qrApplied: qrApplied !== undefined ? qrApplied : current.qrApplied,
     mockupGeneratedAt: nowStr,
-    mockupUploadedBy: "Cris (Ateliê)",
+    mockupUploadedBy: "Cris (Ateliê Glos)",
     updatedAt: nowStr,
     conversationThread: [...current.conversationThread, newAiMessage],
     stateHistory: [
@@ -701,7 +707,9 @@ export const uploadMockupAndTriggerAI = (
         state: "aguardando_aprovacao",
         timestamp: nowStr,
         actor: "cris",
-        description: `Cris subiu nova prova visual no ateliê e a IA Glos enviou automaticamente no WhatsApp para o cliente aprovar.`,
+        description: hadAdjustment
+          ? `Cris anexou nova prova visual no ateliê após ajuste solicitado. IA Glos enviou automaticamente no WhatsApp e liberou aprovação no site.`
+          : `Cris anexou a prova visual no ateliê e a IA Glos enviou automaticamente no WhatsApp para o cliente aprovar.`,
       },
     ],
   };

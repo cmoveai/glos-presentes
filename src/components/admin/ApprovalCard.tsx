@@ -131,19 +131,26 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
             <span className="text-xs font-medium text-[#272727] truncate block">
               {session.productName}
             </span>
-            <span className="text-[10px] text-[#6B6A64] block">
-              Personalização no Ateliê Glos
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className="text-[10px] text-[#6B6A64]">
+                Ateliê Glos
+              </span>
+              {session.qrLink && (
+                <span className="text-[9px] px-1 py-0.2 rounded bg-[#F4F3EF] border border-[#D6D3CC] text-[#004AAD] font-medium font-mono">
+                  QR Play
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Coluna Arquivos do Cliente (4 cols) */}
         <div className="md:col-span-4 p-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-1.5">
           <span className="text-[10px] uppercase text-[#9B998F] block font-medium">
-            Arquivo do Cliente ({session.customerUploadedFiles.length})
+            Arquivo do Cliente ({session.customerUploadedFiles?.length || 0})
           </span>
 
-          {session.customerUploadedFiles.length > 0 ? (
+          {session.customerUploadedFiles && session.customerUploadedFiles.length > 0 ? (
             <div className="flex items-center gap-2">
               <img
                 src={session.customerUploadedFiles[0].url}
@@ -156,22 +163,37 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
                   {session.customerUploadedFiles[0].name}
                 </span>
                 <span className="text-[10px] text-[#6B6A64] block">
-                  {session.customerUploadedFiles[0].size || "WhatsApp"}
+                  {session.customerUploadedFiles[0].size || "WhatsApp / Site"}
                 </span>
               </div>
             </div>
+          ) : session.customerTextDeclaration ? (
+            <span className="text-[11px] text-[#272727] italic truncate block">
+              "{session.customerTextDeclaration}"
+            </span>
           ) : (
             <span className="text-[11px] text-[#9B998F] italic block">
-              Nenhum arquivo enviado ainda
+              Aguardando envio do cliente
             </span>
           )}
         </div>
 
         {/* Coluna Mockup da Cris (4 cols) */}
         <div className="md:col-span-4 p-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-1.5">
-          <span className="text-[10px] uppercase text-[#9B998F] block font-medium">
-            Prova Visual / Mockup (Cris)
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase text-[#9B998F] block font-medium">
+              Prova Visual / Mockup
+            </span>
+            {session.mockupUrl && (
+              <button
+                type="button"
+                onClick={() => onOpenMockupUploader(session)}
+                className="text-[9px] text-[#004AAD] hover:underline"
+              >
+                Trocar
+              </button>
+            )}
+          </div>
 
           {session.mockupUrl ? (
             <div className="flex items-center gap-2">
@@ -183,30 +205,39 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
               />
               <div className="min-w-0 flex-1">
                 <span className="text-[11px] text-[#272727] font-medium truncate block">
-                  Mockup Enviado
+                  Mockup Anexado
                 </span>
                 <span className="text-[10px] text-[#004AAD] block tabular-nums">
-                  {session.mockupGeneratedAt}
+                  {session.mockupGeneratedAt || "Pronto"}
                 </span>
               </div>
             </div>
           ) : (
-            <span className="text-[11px] text-[#9B998F] italic block">
-              Mockup ainda não montado
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-[#9B998F] italic">
+                Pendente de anexo
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenMockupUploader(session)}
+                className="text-[10px] text-[#004AAD] font-medium hover:underline"
+              >
+                + Anexar
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* 3. Destaque Editorial se houver Ajuste Solicitado */}
-      {session.state === "ajuste_solicitado" && session.rejectionReason && (
+      {(session.state === "ajuste_solicitado" || session.rejectionReason || session.comentarioAjuste) && (
         <div className="p-3 rounded-[6px] bg-[#EEEDE8] border border-[#9B2C2C]/40 space-y-1">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#9B2C2C]">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>O cliente solicitou o seguinte ajuste na arte:</span>
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>Ajuste Solicitado pelo Cliente:</span>
           </div>
           <p className="text-xs text-[#272727] italic pl-5">
-            "{session.rejectionReason}"
+            "{session.comentarioAjuste || session.rejectionReason}"
           </p>
         </div>
       )}

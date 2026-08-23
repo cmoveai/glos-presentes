@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Layers,
@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { ArtApprovalSession, ArtApprovalState } from "../../types";
+import { ArtApprovalSession, ArtApprovalState, Order } from "../../types";
 import {
   getApprovalSessionsFromStorage,
   saveApprovalSessionsToStorage,
@@ -23,6 +23,7 @@ import {
   sendCrisManualMessage,
   getZApiStatus,
 } from "../../services/whatsappAIService";
+import { attachOrderMockupFirestore, fetchAllOrdersAdmin } from "../../lib/firebase";
 import { ApprovalCard } from "./ApprovalCard";
 import { MockupUploader } from "./MockupUploader";
 import { ConversationThread } from "./ConversationThread";
@@ -45,6 +46,87 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
   // Modais
   const [activeMockupSession, setActiveMockupSession] = useState<ArtApprovalSession | null>(null);
   const [activeConversationSession, setActiveConversationSession] = useState<ArtApprovalSession | null>(null);
+
+  // Sync with real orders from database/API on mount
+  useEffect(() => {
+    async function syncWithRealOrders() {
+      try {
+        const res = await fetch("/api/orders");
+        if (res.ok) {
+          const data = await res.json();
+          const apiOrders: Order[] = data.orders || [];
+          mergeOrdersIntoSessions(apiOrders);
+        }
+      } catch (err) {
+        console.warn("Could not fetch orders from API, trying Firestore:", err);
+        try {
+          const fsOrders = await fetchAllOrdersAdmin();
+          if (fsOrders.length > 0) {
+            mergeOrdersIntoSessions(fsOrders);
+          }
+        } catch (e) {
+          console.warn("Firestore sync fallback:", e);
+        }
+      }
+    }
+
+    function mergeOrdersIntoSessions(ordersList: Order[]) {
+      const currentSessions = getApprovalSessionsFromStorage();
+      let hasChanges = false;
+      const updatedList = [...currentSessions];
+
+      for (const ord of ordersList) {
+        // Se for pedido com item personalizavel
+        const hasPersonalized =
+          ord.orderType === "personalizado" ||
+          ord.items?.some((it) => it.requerArquivo || it.natureza === "personalizavel" || it.personalization);
+
+        if (!hasPersonalized) continue;
+
+        const existingIdx = updatedList.findIndex(
+          (s) => s.orderId === ord.id || s.orderNumber === ord.id || s.orderNumber === ord.orderNumber
+        );
+
+        if (existingIdx >= 0) {
+          // Atualiza estado se mudou no pedido (ex: cliente aprovou no site)
+          const current = updatedList[existingIdx];
+          let updatedState: ArtApprovalState = current.state;
+          if (ord.aprovacaoMockup === "aprovado" || ord.statusPedido === "em_producao") {
+            updatedState = "aprovado";
+          } else if (ord.aprovacaoMockup === "ajuste_solicitado") {
+            updatedState = "ajuste_solicitado";
+          } else if (ord.aprovacaoMockup === "aguardando_aprovacao" || ord.statusPedido === "aguardando_aprovacao") {
+            updatedState = "aguardando_aprovacao";
+          }
+
+          if (
+            updatedState !== current.state ||
+            (ord.mockupUrl && ord.mockupUrl !== current.mockupUrl) ||
+            (ord.comentarioAjuste && ord.comentarioAjuste !== current.comentarioAjuste)
+          ) {
+            updatedList[existingIdx] = {
+              ...current,
+              state: updatedState,
+              mockupUrl: ord.mockupUrl || current.mockupUrl,
+              comentarioAjuste: ord.comentarioAjuste || current.comentarioAjuste,
+              rejectionReason: ord.comentarioAjuste || current.rejectionReason,
+              qrLink: ord.qrLink || current.qrLink,
+              qrApplied: ord.qrAplicado ?? ord.qrApplied ?? current.qrApplied,
+              requiresCrisAction: updatedState === "arquivo_recebido" || updatedState === "ajuste_solicitado",
+            };
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        setSessions(updatedList);
+        saveApprovalSessionsToStorage(updatedList);
+      }
+    }
+
+    syncWithRealOrders();
+  }, []);
 
   // Recalcular métricas
   const crisActionCount = sessions.filter((s) => s.requiresCrisAction).length;
@@ -74,9 +156,51 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
   });
 
   // Handlers de Upload de Mockup
-  const handleUploadMockupAndSend = (mockupUrl: string) => {
+  const handleUploadMockupAndSend = async (
+    mockupUrl: string,
+    qrLink?: string,
+    qrApplied?: boolean
+  ) => {
     if (!activeMockupSession) return;
-    const updated = uploadMockupAndTriggerAI(activeMockupSession.id, mockupUrl);
+
+    // 1. Atualizar sessão local do WhatsApp
+    const updated = uploadMockupAndTriggerAI(
+      activeMockupSession.id,
+      mockupUrl,
+      qrLink,
+      qrApplied
+    );
+
+    // 2. Sincronizar com a API REST de Pedidos
+    const targetOrderId = activeMockupSession.orderId || activeMockupSession.orderNumber.replace("#", "");
+    try {
+      await fetch(`/api/orders/${targetOrderId}/anexar-mockup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acao: "anexar",
+          mockupUrl,
+          qrLink,
+          qrAplicado: qrApplied,
+          qrApplied,
+        }),
+      });
+    } catch (apiErr) {
+      console.warn("Sync com API de pedidos fallback:", apiErr);
+    }
+
+    // 3. Sincronizar com o Firestore
+    try {
+      await attachOrderMockupFirestore(
+        targetOrderId,
+        mockupUrl,
+        qrLink,
+        qrApplied
+      );
+    } catch (fsErr) {
+      console.warn("Sync com Firestore fallback:", fsErr);
+    }
+
     if (updated) {
       const nextSessions = sessions.map((s) => (s.id === updated.id ? updated : s));
       setSessions(nextSessions);
@@ -153,7 +277,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("acao_cris")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "acao_cris"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -177,7 +301,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("aguardando_arquivo")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "aguardando_arquivo"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -198,7 +322,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("arquivo_recebido")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "arquivo_recebido"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -219,7 +343,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("aguardando_aprovacao")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "aguardando_aprovacao"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -232,7 +356,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
             {aguardandoAprovacaoCount}
           </span>
           <span className="text-[10px] text-[#9B998F] block mt-0.5">
-            No WhatsApp
+            No WhatsApp / Site
           </span>
         </button>
 
@@ -240,7 +364,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("ajuste_solicitado")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "ajuste_solicitado"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -261,7 +385,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
         <button
           type="button"
           onClick={() => setSelectedFilter("aprovado")}
-          className={`p-3 rounded-[8px] border text-left transition-all ${
+          className={`p-3 rounded-[8px] border text-left transition-all cursor-pointer ${
             selectedFilter === "aprovado"
               ? "bg-[#EEEDE8] border-[#004AAD] ring-1 ring-[#004AAD]"
               : "bg-[#F4F3EF] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -298,7 +422,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
           <button
             type="button"
             onClick={() => setSelectedFilter("todos")}
-            className={`px-3 py-1.5 rounded-[6px] text-xs font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer ${
               selectedFilter === "todos"
                 ? "bg-[#004AAD] text-white border-[#004AAD]"
                 : "bg-[#F4F3EF] text-[#6B6A64] border-[#D6D3CC] hover:bg-[#EEEDE8]"
@@ -357,7 +481,7 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveConversationSession(null)}
-                className="text-[#6B6A64] hover:text-[#272727]"
+                className="text-[#6B6A64] hover:text-[#272727] cursor-pointer"
               >
                 ✕
               </button>

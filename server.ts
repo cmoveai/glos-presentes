@@ -1254,11 +1254,11 @@ app.get("/api/orders/:id", (req, res) => {
   return res.json({ success: true, order });
 });
 
-// Endpoint de Aprovação / Ajuste de Mockup da Arte (Comando 11 / Comando 5)
+// Endpoint de Anexar Mockup / Aprovação / Ajuste de Mockup da Arte (Comando 12 & Comando 11 & Comando 5)
 // Grava no MESMO estado único do pedido
-app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res) => {
+app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup", "/api/orders/:id/anexar-mockup"], async (req, res) => {
   const { id } = req.params;
-  const { acao, comentario, clienteId } = req.body || {};
+  const { acao, comentario, clienteId, mockupUrl, qrLink, qrAplicado, qrApplied, customNote } = req.body || {};
 
   const orderIndex = orders.findIndex((o) => o.id === id || o.orderNumber === id);
   if (orderIndex < 0) {
@@ -1268,7 +1268,76 @@ app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res
   const order = orders[orderIndex];
   const nowIso = new Date().toISOString();
 
-  if (acao === "aprovar") {
+  if (acao === "anexar" || acao === "enviar_aprovacao" || mockupUrl || req.path.endsWith("/anexar-mockup")) {
+    const finalMockupUrl = mockupUrl || order.mockupUrl;
+    if (!finalMockupUrl) {
+      return res.status(400).json({ error: "URL do mockup é obrigatória para envio de aprovação." });
+    }
+
+    const previousAdjustment = order.comentarioAjuste;
+    order.mockupUrl = finalMockupUrl;
+    order.aprovacaoMockup = "aguardando_aprovacao";
+    order.statusPedido = "aguardando_aprovacao";
+    order.currentStep = "arte_aprovacao";
+    
+    if (qrLink !== undefined) {
+      order.qrLink = qrLink;
+      order.qrAplicado = qrAplicado ?? qrApplied ?? true;
+      order.qrApplied = qrAplicado ?? qrApplied ?? true;
+    }
+
+    // Atualiza itens personalizáveis
+    if (Array.isArray(order.items)) {
+      order.items = order.items.map((it: any) => {
+        if (it.personalization || it.requerArquivo || it.natureza === "personalizavel") {
+          return {
+            ...it,
+            mockupUrl: finalMockupUrl,
+            personalization: {
+              ...(it.personalization || {}),
+              mockupUrl: finalMockupUrl,
+              approvalStatus: "aguardando_aprovacao",
+              qrLink: order.qrLink,
+              qrApplied: order.qrApplied,
+              notes: customNote || it.personalization?.notes,
+            },
+          };
+        }
+        return it;
+      });
+    }
+
+    const desc = previousAdjustment 
+      ? `Glos anexou nova prova visual após ajuste solicitado ("${previousAdjustment}"). Notificação disparada ao cliente.`
+      : `Glos anexou o mockup da arte final montada no Sublima e enviou para aprovação do cliente.`;
+
+    const historyEvent = {
+      status: "EM_SEPARACAO" as any,
+      label: "Mockup Enviado para Aprovação",
+      date: nowIso,
+      description: desc,
+    };
+    order.statusHistory = [...(order.statusHistory || []), historyEvent];
+
+    if (!order.stepHistory) order.stepHistory = [];
+    order.stepHistory.push({
+      step: "arte_aprovacao" as any,
+      label: "Mockup Enviado para Aprovação",
+      date: nowIso,
+      updatedBy: "Glos Ateliê (Cris)",
+      note: customNote || "Aguardando validação do cliente no site ou WhatsApp",
+    });
+
+    console.log(`[ARTE_MOCKUP_ANEXADO] Pedido #${order.id} mockup anexado: ${finalMockupUrl}. Status: aguardando_aprovacao`);
+    console.log(`[WHATSAPP_NOTIFICATION] Disparando aviso de arte pronta para ${order.customer?.name} (${order.customer?.phone || "WhatsApp"})`);
+
+    orders[orderIndex] = order;
+    return res.json({
+      success: true,
+      order,
+      message: "Mockup anexado e enviado para aprovação do cliente com sucesso.",
+    });
+  } else if (acao === "aprovar") {
     // Se já tiver sido aprovado antes, mantém estado
     if (order.aprovacaoMockup === "aprovado") {
       return res.json({
@@ -1305,7 +1374,7 @@ app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res
       status: "EM_SEPARACAO" as any,
       label: "Arte Aprovada pelo Cliente",
       date: nowIso,
-      description: "Cliente aprovou o mockup da arte pelo site. Pedido encaminhado para produção.",
+      description: "Cliente aprovou o mockup da arte pelo site/WhatsApp. Pedido encaminhado para a esteira de produção.",
     };
     order.statusHistory = [...(order.statusHistory || []), historyEvent];
 
@@ -1314,17 +1383,17 @@ app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res
       step: "em_producao" as any,
       label: "Arte Aprovada — Em Produção",
       date: nowIso,
-      updatedBy: "Cliente (Site)",
-      note: "Mockup validado",
+      updatedBy: clienteId ? `Cliente (${clienteId})` : "Cliente (Site)",
+      note: "Mockup validado sem ressalvas",
     });
 
-    console.log(`[ARTE_APROVACAO] Pedido #${order.id} APROVADO pelo cliente.`);
+    console.log(`[ARTE_APROVACAO] Pedido #${order.id} APROVADO pelo cliente. Entrando em produção.`);
   } else if (acao === "pedir_ajuste") {
     const motivoAjuste = (comentario || "Ajuste solicitado pelo cliente").trim();
     order.aprovacaoMockup = "ajuste_solicitado";
     order.comentarioAjuste = motivoAjuste;
     order.dataSolicitacaoAjuste = nowIso;
-    order.statusPedido = "aguardando_aprovacao"; // Mantém em revisão/ajuste
+    order.statusPedido = "aguardando_aprovacao"; // Mantém em ciclo de arte para a Glos subir novo mockup
     order.currentStep = "arte_aprovacao";
 
     if (Array.isArray(order.items)) {
@@ -1356,13 +1425,13 @@ app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res
       step: "arte_aprovacao" as any,
       label: "Ajuste Solicitado pelo Cliente",
       date: nowIso,
-      updatedBy: "Cliente (Site)",
+      updatedBy: clienteId ? `Cliente (${clienteId})` : "Cliente (Site)",
       note: motivoAjuste,
     });
 
     console.log(`[ARTE_APROVACAO] Pedido #${order.id} AJUSTE SOLICITADO: "${motivoAjuste}"`);
   } else {
-    return res.status(400).json({ error: "Ação inválida. Use 'aprovar' ou 'pedir_ajuste'." });
+    return res.status(400).json({ error: "Ação inválida. Use 'aprovar', 'pedir_ajuste' ou 'anexar'." });
   }
 
   orders[orderIndex] = order;
