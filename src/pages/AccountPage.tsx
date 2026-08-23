@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getOrders, aprovarMockupPedido, solicitarAjusteMockupPedido, trackPackage } from "../services/api";
-import { Order } from "../types";
+import { Order, CustomerFile } from "../types";
 import { BRAND_CONFIG } from "../config/brand";
+import { CustomerFileUploadCard } from "../components/account/CustomerFileUploadCard";
 import {
   Package,
   Clock,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Sparkles,
+  Upload,
 } from "lucide-react";
 
 interface AccountPageProps {
@@ -156,6 +158,16 @@ export const AccountPage: React.FC<AccountPageProps> = ({
         needsAction: true,
         actionType: "arquivo",
         badgeClass: "bg-[#004AAD]/10 text-[#004AAD] border border-[#004AAD]/20",
+        timelineStep: 2,
+      };
+    }
+
+    if (statusPedido === "arquivo_recebido") {
+      return {
+        label: "Arquivo recebido — montando sua arte",
+        needsAction: false,
+        actionType: null,
+        badgeClass: "bg-[#004AAD]/10 text-[#004AAD] border border-[#004AAD]/30",
         timelineStep: 2,
       };
     }
@@ -677,13 +689,16 @@ export const AccountPage: React.FC<AccountPageProps> = ({
 
                       {statusInfo.actionType === "arquivo" && (
                         <a
-                          href={getWhatsAppLink(order, "arquivo")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-[#004AAD] text-white rounded-[6px] text-xs font-medium hover:bg-[#003c8c] transition-colors flex items-center gap-1.5 shrink-0"
+                          href={`#upload-arquivo-${order.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const el = document.getElementById(`upload-arquivo-${order.id}`);
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="px-3 py-1.5 bg-[#004AAD] text-white rounded-[6px] text-xs font-medium hover:bg-[#003c8c] transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                         >
-                          <Send className="w-3 h-3" />
-                          <span>Enviar Foto por WhatsApp</span>
+                          <Upload className="w-3 h-3" />
+                          <span>Enviar Fotos / Áudio Aqui</span>
                         </a>
                       )}
                     </div>
@@ -723,6 +738,39 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                         </div>
                       ))}
                     </div>
+
+                    {/* MÓDULO DE UPLOAD DE ARQUIVOS EM ALTA RESOLUÇÃO (Comando 15) */}
+                    {(order.statusPedido === "aguardando_arquivo" ||
+                      order.statusPedido === "arquivo_recebido" ||
+                      (order.arquivosCliente && order.arquivosCliente.length > 0) ||
+                      order.items?.some(
+                        (i) => i.requerArquivo || (i as any).natureza === "personalizavel" || i.personalization
+                      )) && (
+                      <div id={`upload-arquivo-${order.id}`} className="mt-4">
+                        <CustomerFileUploadCard
+                          order={order}
+                          clienteId={user?.id}
+                          onFilesUploaded={(updatedFiles, newStatus) => {
+                            setOrders((prev) =>
+                              prev.map((o) =>
+                                o.id === order.id
+                                  ? {
+                                      ...o,
+                                      arquivosCliente: updatedFiles,
+                                      statusPedido: newStatus,
+                                      aprovacaoMockup: "arquivo_recebido",
+                                      dataEnvioArquivos: new Date().toISOString(),
+                                    }
+                                  : o
+                              )
+                            );
+                            setActionSuccessMsg(
+                              "Arquivos em alta resolução enviados com sucesso! Nossa equipe do ateliê já iniciou a preparação da sua arte."
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
 
                     {/* MÓDULO DE APROVAÇÃO DE MOCKUP (Comando 11 — O Coração da Fatia) */}
                     {mockupUrl && (

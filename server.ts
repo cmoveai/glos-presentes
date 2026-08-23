@@ -1438,6 +1438,82 @@ app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup", "/api/orders/:id
   return res.json({ success: true, order, message: "Estado de aprovação atualizado com sucesso." });
 });
 
+// Endpoint de Recebimento de Arquivos de Alta Resolução do Cliente (Comando 15)
+app.post("/api/orders/:id/arquivos-cliente", (req, res) => {
+  const { id } = req.params;
+  const { arquivosCliente, comentario, clienteId, itemId } = req.body || {};
+
+  if (!Array.isArray(arquivosCliente) || arquivosCliente.length === 0) {
+    return res.status(400).json({ error: "Nenhum arquivo informado para upload." });
+  }
+
+  const orderIndex = orders.findIndex((o) => o.id === id || o.orderNumber === id);
+  if (orderIndex < 0) {
+    return res.status(404).json({ error: "Pedido não encontrado." });
+  }
+
+  const order = orders[orderIndex];
+  const nowIso = new Date().toISOString();
+
+  const existingFiles = order.arquivosCliente || [];
+  const combinedFiles = [...existingFiles, ...arquivosCliente];
+
+  order.arquivosCliente = combinedFiles;
+  order.statusPedido = "arquivo_recebido";
+  order.currentStep = "aguardando_arquivo";
+  order.aprovacaoMockup = "arquivo_recebido";
+  order.dataEnvioArquivos = nowIso;
+
+  if (comentario && comentario.trim()) {
+    order.comentarioCliente = comentario.trim();
+  }
+
+  // Atualiza personalização dos itens do pedido
+  if (Array.isArray(order.items)) {
+    order.items = order.items.map((it: any) => {
+      if (!itemId || it.id === itemId || it.productId === itemId || it.requerArquivo || it.natureza === "personalizavel") {
+        const itemFiles = it.personalization?.customerFiles || [];
+        return {
+          ...it,
+          personalization: {
+            ...(it.personalization || {}),
+            customerFiles: [...itemFiles, ...arquivosCliente],
+            customText: comentario || it.personalization?.customText,
+            approvalStatus: "aguardando_envio",
+          },
+        };
+      }
+      return it;
+    });
+  }
+
+  const historyEvent = {
+    status: "EM_SEPARACAO" as any,
+    label: "Recebemos seu arquivo",
+    date: nowIso,
+    description: `Recebemos ${arquivosCliente.length} arquivo(s) em alta resolução pelo site. Nossa equipe já está preparando a prova visual no ateliê.`,
+  };
+  order.statusHistory = [...(order.statusHistory || []), historyEvent];
+
+  if (!order.stepHistory) order.stepHistory = [];
+  order.stepHistory.push({
+    step: "aguardando_arquivo" as any,
+    label: "Arquivos recebidos",
+    date: nowIso,
+    updatedBy: clienteId ? `Cliente (${clienteId})` : "Cliente via Web",
+    note: `${arquivosCliente.length} arquivo(s) em alta resolução recebido(s)${comentario ? ` • "${comentario}"` : ""}`,
+  });
+
+  console.log(`[UPLOAD_ARQUIVOS_CLIENTE] Pedido #${order.id} recebeu ${arquivosCliente.length} arquivo(s) em alta resolução. Status: arquivo_recebido`);
+
+  orders[orderIndex] = order;
+  return res.json({
+    success: true,
+    order,
+    message: "Arquivos recebidos com sucesso! Nossa equipe está preparando sua arte.",
+  });
+});
+
 app.post("/api/orders", (req, res) => {
   const orderData = req.body;
   if (!orderData || !orderData.items || orderData.items.length === 0) {

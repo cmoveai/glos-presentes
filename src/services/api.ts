@@ -1,8 +1,9 @@
-import { Coupon, Order, OrderStatus, Product, ShippingOption, AdminMetrics, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings } from "../types";
+import { Coupon, Order, OrderStatus, Product, ShippingOption, AdminMetrics, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings, CustomerFile } from "../types";
 import {
   saveOrderToFirestore,
   fetchUserOrders,
   updateOrderMockupApprovalFirestore,
+  salvarArquivosClienteFirestore,
   fetchProducts,
   fetchProductBySlug,
   seedProductsIfEmpty,
@@ -440,6 +441,40 @@ export async function solicitarAjusteMockupPedido(
   return {
     success: true,
     message: "Solicitação de ajuste enviada para a nossa equipe de design.",
+  };
+}
+
+/**
+ * Envia arquivos de alta resolução do cliente para o ateliê (Comando 15)
+ */
+export async function enviarArquivosClientePedido(
+  orderId: string,
+  arquivos: CustomerFile[],
+  comentario?: string,
+  clienteId?: string,
+  itemId?: string
+): Promise<{ success: boolean; order?: Order; message?: string }> {
+  try {
+    const res = await fetch(`/api/orders/${orderId}/arquivos-cliente`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ arquivosCliente: arquivos, comentario, clienteId, itemId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Sincroniza também no Firestore
+      salvarArquivosClienteFirestore(orderId, arquivos, comentario, clienteId).catch((e) => console.warn(e));
+      return data;
+    }
+  } catch (err) {
+    console.warn("Erro ao enviar arquivos do cliente via API:", err);
+  }
+
+  // Fallback direto no Firestore
+  await salvarArquivosClienteFirestore(orderId, arquivos, comentario, clienteId);
+  return {
+    success: true,
+    message: "Arquivos recebidos com sucesso! Nossa equipe está preparando sua arte.",
   };
 }
 

@@ -446,9 +446,12 @@ export interface Order {
   orderType?: OrderType;
   currentStep?: OrderStep;
   status: OrderStatus;
-  statusPedido?: "aguardando_arquivo" | "a_despachar" | "em_producao" | "despachado" | "entregue" | "cancelado" | string;
+  statusPedido?: "aguardando_arquivo" | "arquivo_recebido" | "aguardando_aprovacao" | "a_despachar" | "em_producao" | "despachado" | "entregue" | "cancelado" | string;
   statusPagamento?: "aguardando_pagamento" | "aprovado" | "rejeitado" | "estornado" | "pago" | "pendente" | "recusado" | string;
-  aprovacaoMockup?: "aguardando_envio" | "aguardando_aprovacao" | "aprovado" | "reprovado" | "ajuste_solicitado" | string;
+  aprovacaoMockup?: "aguardando_envio" | "aguardando_arquivo" | "arquivo_recebido" | "aguardando_aprovacao" | "aprovado" | "reprovado" | "ajuste_solicitado" | string;
+  arquivosCliente?: CustomerFile[];
+  comentarioCliente?: string;
+  dataEnvioArquivos?: string;
   dataAprovacaoMockup?: string;
   comentarioAjuste?: string;
   dataSolicitacaoAjuste?: string;

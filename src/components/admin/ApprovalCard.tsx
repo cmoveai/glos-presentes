@@ -13,6 +13,10 @@ import {
   ArrowRight,
   RefreshCw,
   Eye,
+  Music,
+  Video,
+  FileText,
+  Download,
 } from "lucide-react";
 import { ArtApprovalSession, ArtApprovalState } from "../../types";
 import { Card } from "./Card";
@@ -146,26 +150,60 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
 
         {/* Coluna Arquivos do Cliente (4 cols) */}
         <div className="md:col-span-4 p-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-1.5">
-          <span className="text-[10px] uppercase text-[#9B998F] block font-medium">
-            Arquivo do Cliente ({session.customerUploadedFiles?.length || 0})
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase text-[#9B998F] block font-medium">
+              Arquivo do Cliente ({session.customerUploadedFiles?.length || 0})
+            </span>
+            {session.customerUploadedFiles && session.customerUploadedFiles.length > 0 && (
+              <span className="text-[9px] text-[#0F7A4F] font-medium">Alta Resolução</span>
+            )}
+          </div>
 
           {session.customerUploadedFiles && session.customerUploadedFiles.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <img
-                src={session.customerUploadedFiles[0].url}
-                alt="Arquivo Cliente"
-                referrerPolicy="no-referrer"
-                className="w-8 h-8 rounded-[4px] object-cover bg-white border border-[#D6D3CC] shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <span className="text-[11px] text-[#272727] font-medium truncate block">
-                  {session.customerUploadedFiles[0].name}
-                </span>
+            <div className="space-y-1.5">
+              {session.customerUploadedFiles.slice(0, 2).map((file, idx) => (
+                <div key={file.id || idx} className="flex items-center gap-2">
+                  {file.type === "imagem" ? (
+                    <img
+                      src={file.url}
+                      alt={file.name}
+                      referrerPolicy="no-referrer"
+                      className="w-8 h-8 rounded-[4px] object-cover bg-white border border-[#D6D3CC] shrink-0"
+                    />
+                  ) : file.type === "audio" ? (
+                    <div className="w-8 h-8 rounded-[4px] bg-[#E4E2DD] border border-[#D6D3CC] flex items-center justify-center text-[#004AAD] shrink-0">
+                      <Music className="w-4 h-4" />
+                    </div>
+                  ) : file.type === "video" ? (
+                    <div className="w-8 h-8 rounded-[4px] bg-[#E4E2DD] border border-[#D6D3CC] flex items-center justify-center text-[#004AAD] shrink-0">
+                      <Video className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-[4px] bg-[#E4E2DD] border border-[#D6D3CC] flex items-center justify-center text-[#6B6A64] shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#004AAD] hover:underline font-medium truncate block"
+                      title={file.name}
+                    >
+                      {file.name}
+                    </a>
+                    <span className="text-[10px] text-[#6B6A64] block tabular-nums">
+                      {file.size || "Original (Site)"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {session.customerUploadedFiles.length > 2 && (
                 <span className="text-[10px] text-[#6B6A64] block">
-                  {session.customerUploadedFiles[0].size || "WhatsApp / Site"}
+                  + {session.customerUploadedFiles.length - 2} outro(s) arquivo(s)
                 </span>
-              </div>
+              )}
             </div>
           ) : session.customerTextDeclaration ? (
             <span className="text-[11px] text-[#272727] italic truncate block">

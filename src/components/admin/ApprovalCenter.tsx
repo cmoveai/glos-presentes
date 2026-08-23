@@ -87,8 +87,18 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
           (s) => s.orderId === ord.id || s.orderNumber === ord.id || s.orderNumber === ord.orderNumber
         );
 
+        // Extrai arquivos do cliente do pedido
+        const orderFiles: any[] = ord.arquivosCliente || [];
+        if (orderFiles.length === 0 && Array.isArray(ord.items)) {
+          for (const it of ord.items) {
+            if (it.personalization?.customerFiles?.length) {
+              orderFiles.push(...it.personalization.customerFiles);
+            }
+          }
+        }
+
         if (existingIdx >= 0) {
-          // Atualiza estado se mudou no pedido (ex: cliente aprovou no site)
+          // Atualiza estado se mudou no pedido (ex: cliente enviou arquivo no site ou aprovou mockup)
           const current = updatedList[existingIdx];
           let updatedState: ArtApprovalState = current.state;
           if (ord.aprovacaoMockup === "aprovado" || ord.statusPedido === "em_producao") {
@@ -97,12 +107,17 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
             updatedState = "ajuste_solicitado";
           } else if (ord.aprovacaoMockup === "aguardando_aprovacao" || ord.statusPedido === "aguardando_aprovacao") {
             updatedState = "aguardando_aprovacao";
+          } else if (ord.statusPedido === "arquivo_recebido" || ord.aprovacaoMockup === "arquivo_recebido" || orderFiles.length > 0) {
+            updatedState = current.mockupUrl ? "aguardando_aprovacao" : "arquivo_recebido";
           }
+
+          const combinedFiles = orderFiles.length > 0 ? orderFiles : current.customerUploadedFiles;
 
           if (
             updatedState !== current.state ||
             (ord.mockupUrl && ord.mockupUrl !== current.mockupUrl) ||
-            (ord.comentarioAjuste && ord.comentarioAjuste !== current.comentarioAjuste)
+            (ord.comentarioAjuste && ord.comentarioAjuste !== current.comentarioAjuste) ||
+            (orderFiles.length > 0 && orderFiles.length !== (current.customerUploadedFiles?.length || 0))
           ) {
             updatedList[existingIdx] = {
               ...current,
@@ -110,12 +125,70 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
               mockupUrl: ord.mockupUrl || current.mockupUrl,
               comentarioAjuste: ord.comentarioAjuste || current.comentarioAjuste,
               rejectionReason: ord.comentarioAjuste || current.rejectionReason,
+              customerUploadedFiles: combinedFiles,
+              customerTextDeclaration: ord.comentarioCliente || current.customerTextDeclaration,
               qrLink: ord.qrLink || current.qrLink,
               qrApplied: ord.qrAplicado ?? ord.qrApplied ?? current.qrApplied,
               requiresCrisAction: updatedState === "arquivo_recebido" || updatedState === "ajuste_solicitado",
             };
             hasChanges = true;
           }
+        } else {
+          // Cria nova sessão para este pedido real
+          let initialState: ArtApprovalState = "aguardando_arquivo";
+          if (ord.aprovacaoMockup === "aprovado" || ord.statusPedido === "em_producao") {
+            initialState = "aprovado";
+          } else if (ord.aprovacaoMockup === "ajuste_solicitado") {
+            initialState = "ajuste_solicitado";
+          } else if (ord.mockupUrl || ord.aprovacaoMockup === "aguardando_aprovacao" || ord.statusPedido === "aguardando_aprovacao") {
+            initialState = "aguardando_aprovacao";
+          } else if (ord.statusPedido === "arquivo_recebido" || ord.aprovacaoMockup === "arquivo_recebido" || orderFiles.length > 0) {
+            initialState = "arquivo_recebido";
+          }
+
+          const primaryItem = ord.items?.[0];
+          const newSession: ArtApprovalSession = {
+            id: `session_${ord.id}`,
+            orderId: ord.id,
+            orderNumber: ord.orderNumber || ord.id,
+            itemId: primaryItem?.id || primaryItem?.productId || "item_1",
+            productName: primaryItem?.name || "Presente Personalizado",
+            productImage: primaryItem?.image || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=200&q=80",
+            customerName: ord.customer?.name || "Cliente Glos",
+            customerPhone: ord.customer?.phone || "(11) 99999-9999",
+            state: initialState,
+            requiresCrisAction: initialState === "arquivo_recebido" || initialState === "ajuste_solicitado",
+            customerUploadedFiles: orderFiles,
+            customerTextDeclaration: ord.comentarioCliente || (primaryItem as any)?.textoCurto || primaryItem?.personalization?.customText,
+            mockupUrl: ord.mockupUrl,
+            comentarioAjuste: ord.comentarioAjuste,
+            qrLink: ord.qrLink,
+            qrApplied: ord.qrAplicado ?? ord.qrApplied ?? false,
+            rejectionCount: 0,
+            conversationThread: [
+              {
+                id: `msg_init_${Date.now()}`,
+                sender: "ia",
+                senderName: "Cris (Ateliê Glos)",
+                text: `Pedido #${ord.orderNumber || ord.id} recebido. Aguardando arquivos do cliente em alta resolução.`,
+                timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                status: "read",
+              },
+            ],
+            stateHistory: [
+              {
+                id: `evt_init_${Date.now()}`,
+                state: initialState,
+                timestamp: ord.createdAt || new Date().toISOString(),
+                actor: "sistema",
+                description: "Sessão criada a partir do pedido",
+              },
+            ],
+            createdAt: ord.createdAt || new Date().toISOString(),
+            updatedAt: ord.createdAt || new Date().toISOString(),
+          };
+          updatedList.unshift(newSession);
+          hasChanges = true;
         }
       }
 

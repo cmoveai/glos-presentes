@@ -58,7 +58,7 @@ export const getZApiStatus = (): ZApiConfig => {
 };
 
 /**
- * 5.1.1 - Gerador de Mensagem: Pedir Arquivo ao Cliente
+ * 5.1.1 - Gerador de Mensagem: Pedir Arquivo ao Cliente (Comando 15 — Upload em Alta Resolução no Site)
  */
 export const gerarMensagemPedirArquivo = (
   customerName: string,
@@ -66,7 +66,7 @@ export const gerarMensagemPedirArquivo = (
   orderNumber: string
 ): string => {
   const firstName = customerName.split(" ")[0];
-  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara! Por favor, nos envie por aqui a foto em boa resolução e o texto que você deseja colocar na arte. Assim que você mandar, a Cris no nosso ateliê vai montar a prova visual para você ver como vai ficar!`;
+  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara!\n\nPara garantir a máxima nitidez e acabamento na gravação do seu presente (sem a perda de qualidade do WhatsApp), por favor faça o upload das suas fotos ou áudios em alta resolução direto na sua Área do Cliente:\n👉 https://glos.com.br/minha-conta\n\nAssim que você enviar por lá, a Cris no nosso ateliê já vai preparar a prova visual com todo carinho para você aprovar aqui! Se tiver qualquer dúvida, é só me chamar por aqui.`;
 };
 
 /**

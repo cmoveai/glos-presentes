@@ -16,8 +16,15 @@ import {
   limit,
   writeBatch,
 } from "firebase/firestore";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  uploadBytes,
+} from "firebase/storage";
 import firebaseConfig from "../../firebase-applet-config.json";
-import { Product, Order, OrderStatus, UserProfile, Coupon, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings } from "../types";
+import { Product, Order, OrderStatus, UserProfile, Coupon, CategoryInfo, ProductCollection, HeroCampaign, EditorialBanner, MarketingSettings, StoreOperationsSettings, CustomerFile } from "../types";
 import { PRODUCTS } from "../data/products";
 import { CATEGORIES } from "../data/categories";
 import { HERO_CAMPAIGNS, EDITORIAL_BANNERS } from "../data/banners";
@@ -27,6 +34,7 @@ import { BRAND_CONFIG } from "../config/brand";
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 /**
@@ -309,6 +317,257 @@ export async function attachOrderMockupFirestore(
     return true;
   } catch (err) {
     console.warn("Firestore attachOrderMockup fallback:", err);
+    return false;
+  }
+}
+
+/**
+ * Formata tamanho de arquivo em KB / MB
+ */
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return "0 KB";
+  const k = 1024;
+  const dm = 1;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+}
+
+/**
+ * Determina o tipo do arquivo do cliente a partir do MIME type ou extensão
+ */
+export function detectCustomerFileType(file: File): "imagem" | "video" | "audio" | "outro" {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+
+  if (
+    mime.startsWith("image/") ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".png") ||
+    name.endsWith(".heic") ||
+    name.endsWith(".webp") ||
+    name.endsWith(".svg") ||
+    name.endsWith(".bmp")
+  ) {
+    return "imagem";
+  }
+
+  if (
+    mime.startsWith("video/") ||
+    name.endsWith(".mp4") ||
+    name.endsWith(".mov") ||
+    name.endsWith(".avi") ||
+    name.endsWith(".mkv") ||
+    name.endsWith(".webm")
+  ) {
+    return "video";
+  }
+
+  if (
+    mime.startsWith("audio/") ||
+    name.endsWith(".mp3") ||
+    name.endsWith(".m4a") ||
+    name.endsWith(".wav") ||
+    name.endsWith(".aac") ||
+    name.endsWith(".ogg") ||
+    name.endsWith(".flac")
+  ) {
+    return "audio";
+  }
+
+  return "outro";
+}
+
+/**
+ * UPLOAD DE ARQUIVO ORIGINAL DO CLIENTE NO FIREBASE STORAGE (COMANDO 15)
+ * Regra de Ouro: NÃO comprime nem redimensiona o arquivo.
+ * Preserva o arquivo bruto original para garantir a máxima qualidade de impressão.
+ */
+export async function uploadCustomerFileOriginal(
+  orderId: string,
+  itemId: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<CustomerFile> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const timestamp = Date.now();
+  const cleanOrderId = orderId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const cleanItemId = (itemId || "geral").replace(/[^a-zA-Z0-9_-]/g, "");
+  const storagePath = `pedidos/${cleanOrderId}/arquivos-cliente/${cleanItemId}/${timestamp}_${safeName}`;
+  const fileType = detectCustomerFileType(file);
+  const formattedSize = formatFileSize(file.size);
+
+  try {
+    const storageRef = ref(storage, storagePath);
+    const uploadTask = uploadBytesResumable(storageRef, file, {
+      contentType: file.type || "application/octet-stream",
+      customMetadata: {
+        originalName: file.name,
+        orderId: cleanOrderId,
+        uploadedAt: new Date().toISOString(),
+        preservedOriginal: "true",
+      },
+    });
+
+    const downloadUrl = await new Promise<string>((resolve, reject) => {
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress = snapshot.totalBytes > 0 
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          if (onProgress) onProgress(progress);
+        },
+        (error) => {
+          console.warn("Storage upload task error:", error);
+          reject(error);
+        },
+        async () => {
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            if (onProgress) onProgress(100);
+            resolve(url);
+          } catch (e) {
+            reject(e);
+          }
+        }
+      );
+    });
+
+    return {
+      id: `file_${timestamp}_${Math.random().toString(36).slice(2, 7)}`,
+      name: file.name,
+      url: downloadUrl,
+      type: fileType,
+      size: formattedSize,
+      uploadedAt: new Date().toISOString(),
+    };
+  } catch (storageError) {
+    console.warn("Direct Firebase Storage upload unavailable, using high-fidelity fallback without compression:", storageError);
+    if (onProgress) onProgress(50);
+
+    // Fallback de alta fidelidade: converte para DataURL mantendo 100% dos bytes originais sem qualquer perda
+    const fallbackUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (onProgress) onProgress(100);
+        resolve(ev.target?.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    return {
+      id: `file_${timestamp}_${Math.random().toString(36).slice(2, 7)}`,
+      name: file.name,
+      url: fallbackUrl,
+      type: fileType,
+      size: formattedSize,
+      uploadedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Salva os arquivos enviados pelo cliente no Firestore e atualiza o status do pedido
+ * para "arquivo_recebido" (Comando 15)
+ */
+export async function salvarArquivosClienteFirestore(
+  orderId: string,
+  novosArquivos: CustomerFile[],
+  comentario?: string,
+  clienteId?: string
+): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+  try {
+    const orderDoc = doc(db, "orders", orderId);
+    const snap = await getDoc(orderDoc);
+
+    const updatePayload: any = {
+      statusPedido: "arquivo_recebido",
+      currentStep: "aguardando_arquivo",
+      aprovacaoMockup: "arquivo_recebido",
+      dataEnvioArquivos: nowIso,
+      updatedAt: nowIso,
+    };
+
+    if (comentario && comentario.trim()) {
+      updatePayload.comentarioCliente = comentario.trim();
+    }
+
+    if (snap.exists()) {
+      const existing = snap.data() as Order;
+      const existingFiles = existing.arquivosCliente || [];
+      const combinedFiles = [...existingFiles, ...novosArquivos];
+      updatePayload.arquivosCliente = combinedFiles;
+
+      const newHistoryEvent = {
+        status: (existing.status || "EM_SEPARACAO") as any,
+        label: "Recebemos seu arquivo",
+        date: nowIso,
+        description: `Recebemos ${novosArquivos.length} arquivo(s) em alta resolução pelo site. Nossa equipe já está preparando a prova visual no ateliê.`,
+      };
+      updatePayload.statusHistory = [...(existing.statusHistory || []), newHistoryEvent];
+
+      if (!existing.stepHistory) existing.stepHistory = [];
+      updatePayload.stepHistory = [
+        ...(existing.stepHistory || []),
+        {
+          step: "aguardando_arquivo",
+          label: "Arquivos recebidos",
+          date: nowIso,
+          updatedBy: "Cliente via Web",
+          note: `${novosArquivos.length} arquivo(s) em alta resolução recebido(s)${comentario ? ` • "${comentario}"` : ""}`,
+        },
+      ];
+
+      // Atualiza os itens personalizáveis com os arquivos
+      if (Array.isArray(existing.items)) {
+        updatePayload.items = existing.items.map((it) => {
+          if (it.personalization || it.requerArquivo || (it as any).natureza === "personalizavel") {
+            const currentItemFiles = it.personalization?.customerFiles || [];
+            return {
+              ...it,
+              personalization: {
+                ...(it.personalization || {}),
+                customerFiles: [...currentItemFiles, ...novosArquivos],
+                customText: comentario || it.personalization?.customText,
+                approvalStatus: "aguardando_envio",
+              },
+            };
+          }
+          return it;
+        });
+      }
+
+      await updateDoc(orderDoc, updatePayload);
+    } else {
+      updatePayload.arquivosCliente = novosArquivos;
+      await setDoc(orderDoc, updatePayload, { merge: true });
+    }
+
+    // Sync localStorage
+    try {
+      const saved = localStorage.getItem("ndm_user_orders");
+      if (saved) {
+        const list: Order[] = JSON.parse(saved);
+        const idx = list.findIndex((o) => o.id === orderId || o.orderNumber === orderId);
+        if (idx >= 0) {
+          const currentFiles = list[idx].arquivosCliente || [];
+          list[idx] = {
+            ...list[idx],
+            ...updatePayload,
+            arquivosCliente: [...currentFiles, ...novosArquivos],
+          };
+          localStorage.setItem("ndm_user_orders", JSON.stringify(list));
+        }
+      }
+    } catch {}
+
+    return true;
+  } catch (err) {
+    console.warn("Firestore salvarArquivosCliente fallback:", err);
     return false;
   }
 }
