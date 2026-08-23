@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Order, Product } from "../../types";
 import { AutomationToggle } from "./AutomationToggle";
+import { BRAND_CONFIG } from "../../config/brand";
 
 interface AIManagerProps {
   orders: Order[];
@@ -69,8 +70,8 @@ export const AIManager: React.FC<AIManagerProps> = ({
   products,
   onShowNotification,
 }) => {
-  const [targetPhone, setTargetPhone] = useState("5511947596045");
-  const [storeName, setStoreName] = useState("Ativva Gifts");
+  const [targetPhone, setTargetPhone] = useState(BRAND_CONFIG.whatsapp);
+  const [storeName, setStoreName] = useState(BRAND_CONFIG.name);
   const [generating, setGenerating] = useState(false);
   const [reportResult, setReportResult] = useState<{
     text: string;

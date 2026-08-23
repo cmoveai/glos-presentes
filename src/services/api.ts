@@ -3,6 +3,7 @@ import {
   saveOrderToFirestore,
   fetchUserOrders,
   fetchProducts,
+  fetchProductBySlug,
   seedProductsIfEmpty,
   fetchAllOrdersAdmin,
   updateOrderStatusAdmin,
@@ -550,6 +551,19 @@ export async function updateAdminOrderStatus(
   note?: string
 ): Promise<boolean> {
   return await updateOrderStatusAdmin(orderId, newStatus, trackingCode, note);
+}
+
+/**
+ * STOREFRONT: Get single product by slug or id (Firestore with local fallback)
+ */
+export async function getStoreProductBySlugOrId(slugOrId: string): Promise<Product | undefined> {
+  try {
+    const prod = await fetchProductBySlug(slugOrId);
+    if (prod) return prod;
+  } catch (err) {
+    console.warn("Could not fetch product from Firestore:", err);
+  }
+  return PRODUCTS.find((p) => p.slug === slugOrId || p.id === slugOrId);
 }
 
 /**

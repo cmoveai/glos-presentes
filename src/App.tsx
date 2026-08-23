@@ -16,6 +16,7 @@ import { ExitIntentModal } from "./components/common/ExitIntentModal";
 import { HomePage } from "./pages/HomePage";
 import { CatalogPage } from "./pages/CatalogPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
+import { CartPage } from "./pages/CartPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { AccountPage } from "./pages/AccountPage";
 import { StaticPages } from "./pages/StaticPages";
@@ -38,6 +39,7 @@ type PageRoute =
       search?: string;
     }
   | { name: "product"; slug: string }
+  | { name: "cart" }
   | { name: "checkout" }
   | { name: "account"; tab?: "overview" | "orders" | "favorites" | "addresses" | "profile" | "coupons" | "help" }
   | { name: "admin" }
@@ -48,15 +50,32 @@ type PageRoute =
 
 function parseRouteFromLocation(): PageRoute {
   try {
-    const hash = window.location.hash.replace(/^#\/?/, "").toLowerCase();
+    const rawHash = window.location.hash.replace(/^#\/?/, "");
+    const hash = rawHash.toLowerCase();
     const searchParams = new URLSearchParams(window.location.search);
     const pageParam = searchParams.get("page")?.toLowerCase();
 
     if (hash === "admin" || hash.startsWith("admin") || pageParam === "admin") {
       return { name: "admin" };
     }
-    // Default to admin view for Glos Painel do Lojista
-    if (pageParam === "loja" || hash === "loja" || hash === "home") {
+    if (hash.startsWith("product/")) {
+      const slug = rawHash.replace(/^product\//i, "");
+      if (slug) return { name: "product", slug };
+    }
+    if (hash === "cart" || hash === "carrinho" || pageParam === "cart" || pageParam === "carrinho") {
+      return { name: "cart" };
+    }
+    if (hash === "checkout" || pageParam === "checkout") {
+      return { name: "checkout" };
+    }
+    if (hash === "catalog" || pageParam === "catalog") {
+      return { name: "catalog" };
+    }
+    if (hash.startsWith("account") || pageParam === "account") {
+      return { name: "account" };
+    }
+    // Default to admin view for Glos Painel do Lojista unless storefront requested
+    if (pageParam === "loja" || hash === "loja" || hash === "home" || hash === "") {
       return { name: "home" };
     }
     return { name: "admin" };
@@ -114,6 +133,8 @@ function AppContent() {
         localStorage.removeItem("ativva_admin_active");
         if (newRoute.name === "home") {
           if (window.location.hash) window.location.hash = "";
+        } else if (newRoute.name === "cart") {
+          window.location.hash = "carrinho";
         } else if (newRoute.name === "checkout") {
           window.location.hash = "checkout";
         } else if (newRoute.name === "account") {
@@ -154,6 +175,10 @@ function AppContent() {
     navigateTo({ name: "product", slug });
   };
 
+  const handleNavigateCart = () => {
+    navigateTo({ name: "cart" });
+  };
+
   const handleNavigateCheckout = () => {
     navigateTo({ name: "checkout" });
   };
@@ -185,7 +210,7 @@ function AppContent() {
         onNavigateProduct={handleNavigateProduct}
         onNavigateFavorites={() => handleNavigateAccount("favorites")}
         onNavigateAccount={handleNavigateAccount}
-        onNavigateCart={() => {}}
+        onNavigateCart={handleNavigateCart}
         onNavigateAdmin={handleNavigateAdmin}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
@@ -219,6 +244,16 @@ function AppContent() {
             onNavigateProduct={handleNavigateProduct}
             onNavigateCheckout={handleNavigateCheckout}
             onNavigateCatalog={handleNavigateCatalog}
+            onQuickView={(p) => setQuickViewProduct(p)}
+          />
+        )}
+
+        {route.name === "cart" && (
+          <CartPage
+            onNavigateHome={handleNavigateHome}
+            onNavigateCatalog={() => handleNavigateCatalog()}
+            onNavigateProduct={handleNavigateProduct}
+            onNavigateCheckout={handleNavigateCheckout}
             onQuickView={(p) => setQuickViewProduct(p)}
           />
         )}
@@ -260,8 +295,9 @@ function AppContent() {
 
       {/* GLOBAL CART DRAWER */}
       <CartDrawer
-        onNavigateCheckout={handleNavigateCheckout}
-        onNavigateCatalog={() => handleNavigateCatalog()}
+        onNavigateToCheckout={handleNavigateCheckout}
+        onNavigateToCart={handleNavigateCart}
+        onNavigateToCatalog={() => handleNavigateCatalog()}
       />
 
       {/* QUICK VIEW MODAL */}

@@ -1,6 +1,5 @@
 import React from "react";
 import { HeroCarousel } from "../components/home/HeroCarousel";
-import { BenefitsBar } from "../components/home/BenefitsBar";
 import { EditorialBanners } from "../components/home/EditorialBanners";
 import { CategoryGrid } from "../components/home/CategoryGrid";
 import { GiftKitsSection } from "../components/home/GiftKitsSection";
@@ -33,10 +32,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 1. HERO EM CARROSSEL */}
       <HeroCarousel onNavigateCatalog={onNavigateCatalog} />
 
-      {/* 2. FAIXA DE BENEFÍCIOS */}
-      <BenefitsBar />
-
-      {/* 3. LANÇAMENTOS (VITRINE) */}
+      {/* 2. LANÇAMENTOS (VITRINE) */}
       <section className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-end justify-between mb-8">

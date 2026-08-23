@@ -27,7 +27,7 @@ export const TrustFeatures: React.FC = () => {
     {
       icon: <MessageSquareHeart className="w-6 h-6 text-stone-900" />,
       title: "Atendimento Humanizado",
-      description: `Suporte rápido via WhatsApp (${BRAND_CONFIG.whatsappDisplay}) por pessoas reais.`,
+      description: `Suporte rápido via WhatsApp ${BRAND_CONFIG.whatsappDisplay} por pessoas reais.`,
     },
   ];
 

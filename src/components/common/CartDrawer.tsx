@@ -128,29 +128,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             ) : (
               <>
-                {items.map((item, idx) => {
-                  const itemPrice = item.product.promotionalPrice ?? item.product.price;
+                {items.map((item) => {
+                  const itemPrice = item.precoUnitario ?? (item.product?.promotionalPrice ?? item.product?.price ?? 0);
+                  const isPersonalizavel = item.natureza === "personalizavel" || item.requerArquivo === true;
                   return (
                     <div
-                      key={`${item.product.id}-${item.selectedVariant?.id || idx}`}
+                      key={item.cartLineId}
                       className="flex gap-3 p-3 bg-stone-50/80 rounded-xl border border-stone-200/80 relative group"
                     >
                       <div className="w-20 h-20 rounded-lg overflow-hidden bg-white shrink-0 border border-stone-200">
                         <img
-                          src={item.product.images[0]}
-                          alt={item.product.name}
+                          src={item.imagem || item.product?.images?.[0]}
+                          alt={item.nome}
                           className="w-full h-full object-cover"
                         />
                       </div>
 
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {isPersonalizavel ? (
+                              <span className="text-[10px] font-medium text-[#004AAD] bg-[#004AAD]/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Personalizável
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                <Check className="w-2.5 h-2.5" />
+                                Pronto
+                              </span>
+                            )}
+                          </div>
                           <h4 className="text-xs sm:text-sm font-semibold text-stone-950 line-clamp-1">
-                            {item.product.name}
+                            {item.nome}
                           </h4>
-                          {item.selectedVariant && (
+                          {item.variacaoSelecionada && (
                             <p className="text-[11px] text-stone-600 mt-0.5">
-                              Opção: {item.selectedVariant.name}
+                              Opção: {item.variacaoSelecionada.nome}
+                            </p>
+                          )}
+                          {item.textoCurto && (
+                            <p className="text-[10px] text-stone-700 italic truncate">
+                              “{item.textoCurto}”
                             </p>
                           )}
                           <div className="mt-1 font-bold text-xs sm:text-sm text-stone-950">
@@ -163,16 +182,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <div className="flex items-center border border-stone-300 rounded-lg bg-white overflow-hidden">
                             <button
                               onClick={() =>
-                                updateQuantity(item.product.id, item.quantity - 1, item.selectedVariant?.id)
+                                updateQuantity(item.cartLineId, item.quantidade - 1)
                               }
                               className="w-6 h-6 flex items-center justify-center text-stone-600 hover:bg-stone-100 text-xs"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
-                            <span className="w-7 text-center text-xs font-semibold">{item.quantity}</span>
+                            <span className="w-7 text-center text-xs font-semibold">{item.quantidade}</span>
                             <button
                               onClick={() =>
-                                updateQuantity(item.product.id, item.quantity + 1, item.selectedVariant?.id)
+                                updateQuantity(item.cartLineId, item.quantidade + 1)
                               }
                               className="w-6 h-6 flex items-center justify-center text-stone-600 hover:bg-stone-100 text-xs"
                             >
@@ -181,7 +200,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           </div>
 
                           <button
-                            onClick={() => removeFromCart(item.product.id, item.selectedVariant?.id)}
+                            onClick={() => removeFromCart(item.cartLineId)}
                             className="text-stone-600 hover:text-red-600 transition-colors p-1"
                             title="Remover item"
                           >

@@ -14,6 +14,12 @@ export interface BrandConfig {
   description: string;
   whatsapp: string;
   whatsappDisplay: string;
+  whatsappLink: string;
+  contactWhatsapp: {
+    display: string;
+    link: string;
+    rawNumber: string;
+  };
   email: string;
   phone: string;
   phoneDisplay: string;
@@ -34,11 +40,17 @@ export const BRAND_CONFIG: BrandConfig = {
   adminLabel: "Painel do Lojista",
   tagline: "Presentes finos, kits afetivos e criações personalizadas com foto e gravação",
   description: "Curadoria autoral de presentes criativos, kits com afeto, papelaria fina e itens personalizados para surpreender quem você ama.",
-  whatsapp: "5511947596045",
-  whatsappDisplay: "(11) 94759-6045",
+  whatsapp: "5511989749229",
+  whatsappDisplay: "(11) 98974-9229",
+  whatsappLink: "https://wa.me/5511989749229",
+  contactWhatsapp: {
+    display: "(11) 98974-9229",
+    link: "https://wa.me/5511989749229",
+    rawNumber: "5511989749229",
+  },
   email: "contato@glospresentes.com.br",
-  phone: "5511947596045",
-  phoneDisplay: "(11) 94759-6045",
+  phone: "5511989749229",
+  phoneDisplay: "(11) 98974-9229",
   openingHours: "Segunda a Sexta das 09h às 18h | Sábado das 09h às 13h",
   freeShippingThreshold: 249.0, // Frete grátis acima de R$ 249
   maxInstallmentsWithoutInterest: 6,

@@ -201,9 +201,27 @@ export interface OccasionInfo {
   image: string;
 }
 
+export interface CartVariantSelection {
+  id: string;
+  nome: string;
+  cor?: string | null;
+  priceModifier?: number;
+}
+
 export interface CartItem {
+  cartLineId: string;
+  productId: string;
+  nome: string;
+  imagem: string;
+  precoUnitario: number;
+  quantidade: number;
+  quantity?: number;
+  natureza: "licenciado" | "personalizavel";
+  variacaoSelecionada: CartVariantSelection | null;
+  cor: string | null;
+  textoCurto: string | null;
+  requerArquivo: boolean;
   product: Product;
-  quantity: number;
   selectedVariant?: ProductVariant;
   customGiftMessage?: string;
   includeGiftWrap?: boolean;

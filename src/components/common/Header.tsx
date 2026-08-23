@@ -43,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateProduct,
   onNavigateFavorites,
   onNavigateAccount,
+  onNavigateCart,
   onNavigateAdmin,
   onOpenAuthModal,
 }) => {
@@ -363,12 +364,13 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Cart Drawer Trigger */}
+            {/* Cart Trigger */}
             <button
               id="header-cart-btn"
               type="button"
-              onClick={openCart}
+              onClick={onNavigateCart}
               className="p-2 sm:px-3 sm:py-2 rounded-xl bg-stone-950 hover:bg-stone-800 text-white transition-colors flex items-center gap-2 shadow-xs"
+              title="Ver Carrinho de Compras"
             >
               <div className="relative">
                 <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
