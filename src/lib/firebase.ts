@@ -105,26 +105,123 @@ export async function saveOrderToFirestore(order: Order): Promise<boolean> {
 /**
  * Fetch orders by user email or user ID from Firestore.
  */
-export async function fetchUserOrders(emailOrUserId: string): Promise<Order[]> {
+export async function fetchUserOrders(emailOrUserId?: string, clienteId?: string): Promise<Order[]> {
   try {
     const ordersRef = collection(db, "orders");
-    const q = query(
-      ordersRef,
-      where("customer.email", "==", emailOrUserId),
-      orderBy("createdAt", "desc")
-    );
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      return snapshot.docs.map((d) => d.data() as Order);
+    let docsResult: Order[] = [];
+
+    if (clienteId) {
+      const qCliente = query(
+        ordersRef,
+        where("clienteId", "==", clienteId),
+        orderBy("createdAt", "desc")
+      );
+      const snapCliente = await getDocs(qCliente);
+      if (!snapCliente.empty) {
+        docsResult = snapCliente.docs.map((d) => d.data() as Order);
+      }
+    }
+
+    if (docsResult.length === 0 && emailOrUserId) {
+      const qEmail = query(
+        ordersRef,
+        where("customer.email", "==", emailOrUserId),
+        orderBy("createdAt", "desc")
+      );
+      const snapEmail = await getDocs(qEmail);
+      if (!snapEmail.empty) {
+        docsResult = snapEmail.docs.map((d) => d.data() as Order);
+      }
+    }
+
+    if (docsResult.length > 0) {
+      return docsResult;
     }
   } catch (error) {
     console.warn("Firestore fetchUserOrders falling back to localStorage:", error);
   }
   try {
-    const local = localStorage.getItem("ndm_user_orders");
-    return local ? JSON.parse(local) : [];
+    const local = localStorage.getItem("ndm_user_orders") || localStorage.getItem("glos_user_orders");
+    if (local) {
+      const allOrders: Order[] = JSON.parse(local);
+      if (clienteId || emailOrUserId) {
+        return allOrders.filter(
+          (o) =>
+            (clienteId && o.clienteId === clienteId) ||
+            (emailOrUserId && (o.customer?.email || "").toLowerCase() === emailOrUserId.toLowerCase())
+        );
+      }
+      return allOrders;
+    }
   } catch {
     return [];
+  }
+  return [];
+}
+
+/**
+ * Update mockup approval state directly in Firestore.
+ */
+export async function updateOrderMockupApprovalFirestore(
+  orderId: string,
+  acao: "aprovar" | "pedir_ajuste",
+  comentario?: string
+): Promise<boolean> {
+  const nowIso = new Date().toISOString();
+  try {
+    const orderDoc = doc(db, "orders", orderId);
+    const snap = await getDoc(orderDoc);
+
+    const updatePayload: any = {
+      aprovacaoMockup: acao === "aprovar" ? "aprovado" : "ajuste_solicitado",
+      updatedAt: nowIso,
+    };
+
+    if (acao === "aprovar") {
+      updatePayload.dataAprovacaoMockup = nowIso;
+      updatePayload.statusPedido = "em_producao";
+      updatePayload.currentStep = "em_producao";
+    } else {
+      updatePayload.comentarioAjuste = (comentario || "").trim();
+      updatePayload.dataSolicitacaoAjuste = nowIso;
+      updatePayload.statusPedido = "aguardando_aprovacao";
+      updatePayload.currentStep = "arte_aprovacao";
+    }
+
+    if (snap.exists()) {
+      const existing = snap.data() as Order;
+      const newEvent = {
+        status: (existing.status || "EM_SEPARACAO") as any,
+        label: acao === "aprovar" ? "Arte Aprovada pelo Cliente" : "Ajuste de Arte Solicitado",
+        date: nowIso,
+        description:
+          acao === "aprovar"
+            ? "Cliente aprovou o mockup da arte no site. Pedido em produção."
+            : `Cliente solicitou ajuste no mockup: "${comentario || ""}"`,
+      };
+      updatePayload.statusHistory = [...(existing.statusHistory || []), newEvent];
+      await updateDoc(orderDoc, updatePayload);
+    } else {
+      await setDoc(orderDoc, updatePayload, { merge: true });
+    }
+
+    // Sync in localStorage
+    try {
+      const saved = localStorage.getItem("ndm_user_orders");
+      if (saved) {
+        const list: Order[] = JSON.parse(saved);
+        const idx = list.findIndex((o) => o.id === orderId);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...updatePayload };
+          localStorage.setItem("ndm_user_orders", JSON.stringify(list));
+        }
+      }
+    } catch {}
+
+    return true;
+  } catch (err) {
+    console.warn("Firestore updateOrderMockupApproval fallback:", err);
+    return false;
   }
 }
 

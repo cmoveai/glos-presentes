@@ -17,7 +17,111 @@ const PORT = 3000;
 app.use(express.json());
 
 // In-memory mock storage for demo backend operations
-const orders: any[] = [];
+const orders: any[] = [
+  {
+    id: "PED-984210",
+    orderNumber: "PED-984210",
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    status: "EM_SEPARACAO",
+    statusPedido: "aguardando_aprovacao",
+    statusPagamento: "pago",
+    currentStep: "arte_aprovacao",
+    aprovacaoMockup: "aguardando_aprovacao",
+    mockupUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80",
+    customer: {
+      name: "Mariana Costa",
+      email: "mariana.costa@exemplo.com",
+      phone: "(11) 98765-4321",
+    },
+    items: [
+      {
+        productId: "prod-pers-01",
+        name: "Caixa Presente de Madeira Personalizada com Gravação a Laser",
+        price: 189.9,
+        quantity: 1,
+        image: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80",
+        mockupUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80",
+        natureza: "personalizavel",
+        requerArquivo: true,
+        textoCurto: "Mari & Pedro • 10 Anos",
+        cor: "Nogueira Nobre",
+        personalization: {
+          approvalStatus: "aguardando_aprovacao",
+          mockupUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80",
+        },
+      },
+    ],
+    subtotal: 189.9,
+    shippingPrice: 19.9,
+    discount: 0,
+    total: 209.8,
+    paymentMethod: "pix",
+    shippingAddress: {
+      recipientName: "Mariana Costa",
+      street: "Rua Oscar Freire",
+      number: "1420",
+      complement: "Apto 42",
+      neighborhood: "Jardins",
+      city: "São Paulo",
+      state: "SP",
+      zipCode: "01426-001",
+    },
+    statusHistory: [
+      { status: "PEDIDO_REALIZADO", label: "Pedido Realizado", date: new Date(Date.now() - 2 * 3600 * 1000).toISOString() },
+      { status: "PAGAMENTO_APROVADO", label: "Pagamento Confirmado via Pix", date: new Date(Date.now() - 1.8 * 3600 * 1000).toISOString() },
+      { status: "ARTE_ENVIADA", label: "Mockup de Arte Gerado pela Glos", date: new Date(Date.now() - 0.5 * 3600 * 1000).toISOString() },
+    ],
+  },
+  {
+    id: "PED-982140",
+    orderNumber: "PED-982140",
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    status: "ENVIADO",
+    statusPedido: "enviado",
+    statusPagamento: "pago",
+    currentStep: "enviado",
+    aprovacaoMockup: "aprovado",
+    dataAprovacaoMockup: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
+    trackingCode: "BR948271049SP",
+    customer: {
+      name: "Mariana Costa",
+      email: "mariana.costa@exemplo.com",
+      phone: "(11) 98765-4321",
+    },
+    items: [
+      {
+        productId: "prod-rev-02",
+        name: "Luminária de Mesa Art Déco Gold",
+        price: 149.9,
+        quantity: 1,
+        image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80",
+        natureza: "simples",
+        requerArquivo: false,
+      },
+    ],
+    subtotal: 149.9,
+    shippingPrice: 0,
+    discount: 14.99,
+    total: 134.91,
+    paymentMethod: "credit_card",
+    shippingAddress: {
+      recipientName: "Mariana Costa",
+      street: "Rua Oscar Freire",
+      number: "1420",
+      complement: "Apto 42",
+      neighborhood: "Jardins",
+      city: "São Paulo",
+      state: "SP",
+      zipCode: "01426-001",
+    },
+    statusHistory: [
+      { status: "PEDIDO_REALIZADO", label: "Pedido Realizado", date: new Date(Date.now() - 24 * 3600 * 1000).toISOString() },
+      { status: "PAGAMENTO_APROVADO", label: "Pagamento Confirmado", date: new Date(Date.now() - 23.5 * 3600 * 1000).toISOString() },
+      { status: "EM_SEPARACAO", label: "Embalado para Presente", date: new Date(Date.now() - 12 * 3600 * 1000).toISOString() },
+      { status: "ENVIADO", label: "Despachado para Entrega", date: new Date(Date.now() - 4 * 3600 * 1000).toISOString() },
+    ],
+  },
+];
 const newsletterSubscribers: string[] = [];
 
 // Idempotency cache for Mercado Pago Webhooks (prevents duplicate execution & double stock deduction)
@@ -1117,13 +1221,28 @@ app.post("/api/coupons/validate", (req, res) => {
 // API: Save and list orders securely
 app.get("/api/orders", (req, res) => {
   const email = req.query.email as string | undefined;
-  if (email) {
-    const filtered = orders.filter(
+  const clienteId = req.query.clienteId as string | undefined;
+
+  let filtered = [...orders];
+
+  if (clienteId && email) {
+    filtered = filtered.filter(
+      (o) =>
+        (o.clienteId && o.clienteId === clienteId) ||
+        (o.customer?.email || "").toLowerCase() === email.toLowerCase()
+    );
+  } else if (clienteId) {
+    filtered = filtered.filter((o) => o.clienteId === clienteId);
+  } else if (email) {
+    filtered = filtered.filter(
       (o) => (o.customer?.email || "").toLowerCase() === email.toLowerCase()
     );
-    return res.json({ success: true, orders: filtered });
   }
-  return res.json({ success: true, orders });
+
+  // Ordenar mais recentes primeiro
+  filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+  return res.json({ success: true, orders: filtered });
 });
 
 app.get("/api/orders/:id", (req, res) => {
@@ -1133,6 +1252,121 @@ app.get("/api/orders/:id", (req, res) => {
     return res.status(404).json({ error: "Pedido não encontrado." });
   }
   return res.json({ success: true, order });
+});
+
+// Endpoint de Aprovação / Ajuste de Mockup da Arte (Comando 11 / Comando 5)
+// Grava no MESMO estado único do pedido
+app.all(["/api/orders/:id/aprovacao", "/api/orders/:id/mockup"], async (req, res) => {
+  const { id } = req.params;
+  const { acao, comentario, clienteId } = req.body || {};
+
+  const orderIndex = orders.findIndex((o) => o.id === id || o.orderNumber === id);
+  if (orderIndex < 0) {
+    return res.status(404).json({ error: "Pedido não encontrado." });
+  }
+
+  const order = orders[orderIndex];
+  const nowIso = new Date().toISOString();
+
+  if (acao === "aprovar") {
+    // Se já tiver sido aprovado antes, mantém estado
+    if (order.aprovacaoMockup === "aprovado") {
+      return res.json({
+        success: true,
+        alreadyApproved: true,
+        message: "A arte deste pedido já foi aprovada anteriormente.",
+        order,
+      });
+    }
+
+    order.aprovacaoMockup = "aprovado";
+    order.dataAprovacaoMockup = nowIso;
+    order.statusPedido = "em_producao";
+    order.currentStep = "em_producao";
+
+    // Atualiza itens do pedido se houver itens personalizáveis
+    if (Array.isArray(order.items)) {
+      order.items = order.items.map((it: any) => {
+        if (it.personalization || it.requerArquivo || it.natureza === "personalizavel") {
+          return {
+            ...it,
+            personalization: {
+              ...(it.personalization || {}),
+              approvalStatus: "aprovado",
+              approvalDate: nowIso,
+            },
+          };
+        }
+        return it;
+      });
+    }
+
+    const historyEvent = {
+      status: "EM_SEPARACAO" as any,
+      label: "Arte Aprovada pelo Cliente",
+      date: nowIso,
+      description: "Cliente aprovou o mockup da arte pelo site. Pedido encaminhado para produção.",
+    };
+    order.statusHistory = [...(order.statusHistory || []), historyEvent];
+
+    if (!order.stepHistory) order.stepHistory = [];
+    order.stepHistory.push({
+      step: "em_producao" as any,
+      label: "Arte Aprovada — Em Produção",
+      date: nowIso,
+      updatedBy: "Cliente (Site)",
+      note: "Mockup validado",
+    });
+
+    console.log(`[ARTE_APROVACAO] Pedido #${order.id} APROVADO pelo cliente.`);
+  } else if (acao === "pedir_ajuste") {
+    const motivoAjuste = (comentario || "Ajuste solicitado pelo cliente").trim();
+    order.aprovacaoMockup = "ajuste_solicitado";
+    order.comentarioAjuste = motivoAjuste;
+    order.dataSolicitacaoAjuste = nowIso;
+    order.statusPedido = "aguardando_aprovacao"; // Mantém em revisão/ajuste
+    order.currentStep = "arte_aprovacao";
+
+    if (Array.isArray(order.items)) {
+      order.items = order.items.map((it: any) => {
+        if (it.personalization || it.requerArquivo || it.natureza === "personalizavel") {
+          return {
+            ...it,
+            personalization: {
+              ...(it.personalization || {}),
+              approvalStatus: "ajuste_solicitado",
+              notes: motivoAjuste,
+            },
+          };
+        }
+        return it;
+      });
+    }
+
+    const historyEvent = {
+      status: "EM_SEPARACAO" as any,
+      label: "Ajuste de Arte Solicitado",
+      date: nowIso,
+      description: `Cliente solicitou ajuste no mockup: "${motivoAjuste}"`,
+    };
+    order.statusHistory = [...(order.statusHistory || []), historyEvent];
+
+    if (!order.stepHistory) order.stepHistory = [];
+    order.stepHistory.push({
+      step: "arte_aprovacao" as any,
+      label: "Ajuste Solicitado pelo Cliente",
+      date: nowIso,
+      updatedBy: "Cliente (Site)",
+      note: motivoAjuste,
+    });
+
+    console.log(`[ARTE_APROVACAO] Pedido #${order.id} AJUSTE SOLICITADO: "${motivoAjuste}"`);
+  } else {
+    return res.status(400).json({ error: "Ação inválida. Use 'aprovar' ou 'pedir_ajuste'." });
+  }
+
+  orders[orderIndex] = order;
+  return res.json({ success: true, order, message: "Estado de aprovação atualizado com sucesso." });
 });
 
 app.post("/api/orders", (req, res) => {

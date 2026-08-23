@@ -71,8 +71,17 @@ function parseRouteFromLocation(): PageRoute {
     if (hash === "catalog" || pageParam === "catalog") {
       return { name: "catalog" };
     }
-    if (hash.startsWith("account") || pageParam === "account") {
-      return { name: "account" };
+    if (
+      hash.startsWith("account") ||
+      hash.startsWith("minha-conta") ||
+      hash.startsWith("pedidos") ||
+      hash.startsWith("conta") ||
+      pageParam === "account" ||
+      pageParam === "minha-conta" ||
+      pageParam === "pedidos"
+    ) {
+      const tab = hash.includes("profile") ? "profile" : "orders";
+      return { name: "account", tab };
     }
     // Default to admin view for Glos Painel do Lojista unless storefront requested
     if (pageParam === "loja" || hash === "loja" || hash === "home" || hash === "") {

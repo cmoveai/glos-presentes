@@ -2,6 +2,7 @@ import { Coupon, Order, OrderStatus, Product, ShippingOption, AdminMetrics, Cate
 import {
   saveOrderToFirestore,
   fetchUserOrders,
+  updateOrderMockupApprovalFirestore,
   fetchProducts,
   fetchProductBySlug,
   seedProductsIfEmpty,
@@ -341,18 +342,105 @@ export async function submitOrder(orderData: Partial<Order>): Promise<{ success:
 
 export const createOrder = submitOrder;
 
-export async function getOrders(email?: string): Promise<Order[]> {
-  if (email) {
-    const dbOrders = await fetchUserOrders(email);
+export async function getOrders(email?: string, clienteId?: string): Promise<Order[]> {
+  try {
+    const params = new URLSearchParams();
+    if (email) params.append("email", email);
+    if (clienteId) params.append("clienteId", clienteId);
+
+    const res = await fetch(`/api/orders?${params.toString()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        return data.orders;
+      }
+    }
+  } catch (err) {
+    console.warn("Fetch /api/orders fallback to Firestore/localStorage:", err);
+  }
+
+  if (email || clienteId) {
+    const dbOrders = await fetchUserOrders(email, clienteId);
     if (dbOrders.length > 0) return dbOrders;
   }
+
   try {
-    const saved = localStorage.getItem("ndm_user_orders");
+    const saved = localStorage.getItem("ndm_user_orders") || localStorage.getItem("glos_user_orders");
     if (saved) {
-      return JSON.parse(saved);
+      const list: Order[] = JSON.parse(saved);
+      if (clienteId || email) {
+        return list.filter(
+          (o) =>
+            (clienteId && o.clienteId === clienteId) ||
+            (email && (o.customer?.email || "").toLowerCase() === email.toLowerCase())
+        );
+      }
+      return list;
     }
   } catch {}
   return [];
+}
+
+/**
+ * Aprova o mockup de arte do pedido pelo cliente (Comando 11 / Comando 5)
+ */
+export async function aprovarMockupPedido(
+  orderId: string,
+  clienteId?: string
+): Promise<{ success: boolean; order?: Order; message?: string }> {
+  try {
+    const res = await fetch(`/api/orders/${orderId}/aprovacao`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "aprovar", clienteId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Sincroniza também no Firestore
+      updateOrderMockupApprovalFirestore(orderId, "aprovar").catch((e) => console.warn(e));
+      return data;
+    }
+  } catch (err) {
+    console.warn("Erro ao aprovar mockup via API:", err);
+  }
+
+  // Fallback direto no Firestore
+  await updateOrderMockupApprovalFirestore(orderId, "aprovar");
+  return {
+    success: true,
+    message: "Mockup aprovado com sucesso! Pedido enviado para produção.",
+  };
+}
+
+/**
+ * Solicita ajuste no mockup de arte do pedido pelo cliente (Comando 11 / Comando 5)
+ */
+export async function solicitarAjusteMockupPedido(
+  orderId: string,
+  comentario: string,
+  clienteId?: string
+): Promise<{ success: boolean; order?: Order; message?: string }> {
+  try {
+    const res = await fetch(`/api/orders/${orderId}/aprovacao`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "pedir_ajuste", comentario, clienteId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      updateOrderMockupApprovalFirestore(orderId, "pedir_ajuste", comentario).catch((e) => console.warn(e));
+      return data;
+    }
+  } catch (err) {
+    console.warn("Erro ao solicitar ajuste de mockup via API:", err);
+  }
+
+  // Fallback direto no Firestore
+  await updateOrderMockupApprovalFirestore(orderId, "pedir_ajuste", comentario);
+  return {
+    success: true,
+    message: "Solicitação de ajuste enviada para a nossa equipe de design.",
+  };
 }
 
 export async function subscribeNewsletter(email: string): Promise<{ success: boolean; message: string }> {

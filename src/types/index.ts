@@ -286,6 +286,7 @@ export interface OrderItemSummary {
   requerArquivo?: boolean;
   cor?: string | null;
   textoCurto?: string | null;
+  mockupUrl?: string;
 }
 
 export type OrderStatus =
@@ -443,6 +444,11 @@ export interface Order {
   status: OrderStatus;
   statusPedido?: "aguardando_arquivo" | "a_despachar" | "em_producao" | "despachado" | "entregue" | "cancelado" | string;
   statusPagamento?: "aguardando_pagamento" | "aprovado" | "rejeitado" | "estornado" | "pago" | "pendente" | "recusado" | string;
+  aprovacaoMockup?: "aguardando_envio" | "aguardando_aprovacao" | "aprovado" | "reprovado" | "ajuste_solicitado" | string;
+  dataAprovacaoMockup?: string;
+  comentarioAjuste?: string;
+  dataSolicitacaoAjuste?: string;
+  mockupUrl?: string;
   statusHistory: OrderStatusEvent[];
   stepHistory?: Array<{
     step: OrderStep;
