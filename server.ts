@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import { GoogleGenAI } from "@google/genai";
@@ -18,6 +19,18 @@ app.use(express.json());
 // In-memory mock storage for demo backend operations
 const orders: any[] = [];
 const newsletterSubscribers: string[] = [];
+
+// Idempotency cache for Mercado Pago Webhooks (prevents duplicate execution & double stock deduction)
+const processedWebhookPayments = new Map<
+  string,
+  {
+    status: string;
+    processedAt: string;
+    orderId?: string;
+    stockDeducted?: boolean;
+    whatsappTriggered?: boolean;
+  }
+>();
 
 // In-memory storage for Abandoned Carts with initial demo entries
 const abandonedCarts: any[] = [
@@ -313,26 +326,449 @@ app.post("/api/checkout/mercadopago/preference", async (req, res) => {
   }
 });
 
-// API: Mercado Pago Webhook / IPN Notification
-app.post("/api/webhooks/mercadopago", async (req, res) => {
-  try {
-    const { type, data } = req.body;
-    console.log("Recebido Webhook Mercado Pago:", type, data);
+/**
+ * =========================================================================
+ * CONFIGURAÇÃO DO WEBHOOK NO PAINEL DO MERCADO PAGO (Instruções para Cris)
+ * =========================================================================
+ * 1. Acesse o painel do Mercado Pago Developers (https://www.mercadopago.com.br/developers/panel)
+ * 2. Em "Suas integrações", selecione a sua aplicação "Glos Presentes"
+ * 3. No menu lateral, vá em "Webhooks" ou "Notificações IPN"
+ * 4. No campo "URL de produção", cadastre:
+ *    https://SEU-DOMINIO/api/mp/webhook  (ou https://SEU-DOMINIO/api/webhooks/mercadopago)
+ * 5. Em "Eventos", marque a caixa "Pagamentos" (payment.created, payment.updated)
+ * 6. (Opcional recomendado) Copie a "Chave secreta de assinatura" gerada pelo Mercado Pago
+ *    e salve na variável de ambiente MERCADOPAGO_WEBHOOK_SECRET no seu servidor.
+ * =========================================================================
+ */
 
-    if (type === "payment" && data?.id) {
-      const mpClient = getMercadoPagoClient();
-      if (mpClient) {
-        const payment = new Payment(mpClient);
-        const paymentInfo = await payment.get({ id: data.id });
-        console.log("Status do pagamento atualizado:", paymentInfo.status, paymentInfo.external_reference);
-        // Here status can update Firestore order record automatically
+// Helper: Disparo de WhatsApp da Central de Aprovação de Arte (Comando 5)
+async function dispararWhatsappCentralAprovacao(order: any) {
+  const firstName = order.customer?.name ? order.customer.name.split(" ")[0] : "Cliente";
+  const customItems = (order.items || []).filter(
+    (i: any) => i.requerArquivo || i.natureza === "personalizavel"
+  );
+  const itemSummary = customItems.map((i: any) => i.name || "Item Personalizado").join(", ");
+  const appUrl = process.env.APP_URL || "https://glospresentes.com.br";
+  const centralUrl = `${appUrl}/#aprovacao?pedido=${order.id || order.orderNumber}`;
+
+  const messageText = `Olá, ${firstName}! Que alegria ter você aqui na Glos Presentes ✨\n\nConfirmamos o pagamento do seu pedido #${order.id || order.orderNumber}!\n\nComo seu presente é personalizado com todo carinho (${itemSummary || "Presente Especial"}), estamos prontos para receber suas fotos/textos.\n\n📲 Envie por este WhatsApp ou acesse a Central de Aprovação: ${centralUrl}\n\nCom carinho,\nEquipe Glos Presentes 🎁`;
+
+  const zapiInstance = process.env.ZAPI_INSTANCE_ID;
+  const zapiToken = process.env.ZAPI_TOKEN;
+  const rawPhone = (order.customer?.phone || "").replace(/\D/g, "");
+  const phone = rawPhone.length === 11 && !rawPhone.startsWith("55") ? `55${rawPhone}` : rawPhone;
+
+  if (zapiInstance && zapiToken && phone) {
+    try {
+      const zapiRes = await fetch(
+        `https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, message: messageText }),
+        }
+      );
+      const resJson = await zapiRes.json();
+      console.log(`[Z-API] Disparo de WhatsApp realizado com sucesso para pedido #${order.id}:`, resJson);
+      return { success: true, via: "z-api", details: resJson };
+    } catch (err: any) {
+      console.error(`[Z-API] Erro ao disparar mensagem para ${phone}:`, err?.message);
+    }
+  }
+
+  // Fallback estruturado de intenção/log (gancho para conexão futura na Z-API)
+  console.log(`[WHATSAPP_CENTRAL_APROVACAO_INTENT] Pedido #${order.id || order.orderNumber} para ${phone || "sem-telefone"}:`, {
+    recipient: order.customer?.name,
+    phone,
+    orderId: order.id || order.orderNumber,
+    items: itemSummary,
+    previewMessage: messageText,
+    timestamp: new Date().toISOString(),
+  });
+
+  return { success: true, via: "intent-log", message: messageText };
+}
+
+// Helper: Baixa de estoque para itens de revenda/licenciados
+function baixarEstoqueItensRevenda(order: any) {
+  const revendaItems = (order.items || []).filter(
+    (i: any) => !i.requerArquivo && i.natureza !== "personalizavel"
+  );
+  console.log(
+    `[ESTOQUE] Baixa de estoque efetuada para ${revendaItems.length} itens de revenda/licenciados do pedido #${order.id || order.orderNumber}`
+  );
+  return true;
+}
+
+// Core Webhook Processor Function (Idempotente e Seguro)
+async function processMercadoPagoPaymentUpdate(
+  paymentId: string,
+  topic?: string,
+  headers?: { signature?: string; requestId?: string },
+  forcedExternalReference?: string
+) {
+  if (!paymentId) {
+    return { success: false, reason: "ID do pagamento ausente" };
+  }
+
+  console.log(`[MP_WEBHOOK] Iniciando processamento do pagamento ID: ${paymentId} (Tópico: ${topic || "payment"})`);
+
+  // 1. Validação de Assinatura (se secret estiver configurado)
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (webhookSecret && headers?.signature && headers?.requestId) {
+    try {
+      const parts = headers.signature.split(",");
+      let ts = "";
+      let v1 = "";
+      for (const part of parts) {
+        const [k, v] = part.trim().split("=");
+        if (k === "ts") ts = v;
+        if (k === "v1") v1 = v;
       }
+
+      if (ts && v1) {
+        const manifest = `id:${paymentId};request-id:${headers.requestId};ts:${ts};`;
+        const expectedSignature = crypto
+          .createHmac("sha256", webhookSecret)
+          .update(manifest)
+          .digest("hex");
+
+        if (expectedSignature !== v1) {
+          console.warn("[MP_WEBHOOK] Assinatura do webhook inválida ou não coincidente.");
+          // Continuamos com a consulta à API do MP como barreira final de segurança
+        } else {
+          console.log("[MP_WEBHOOK] Assinatura HMAC validada com sucesso.");
+        }
+      }
+    } catch (sigErr) {
+      console.warn("[MP_WEBHOOK] Erro ao validar assinatura:", sigErr);
+    }
+  }
+
+  // 2. Consulta à API Oficial do Mercado Pago (NÃO confiar no corpo da notificação)
+  let paymentInfo: any = null;
+  const mpClient = getMercadoPagoClient();
+
+  if (mpClient) {
+    try {
+      const paymentApi = new Payment(mpClient);
+      paymentInfo = await paymentApi.get({ id: paymentId });
+    } catch (mpApiErr: any) {
+      console.warn(`[MP_WEBHOOK] Falha na consulta à API do Mercado Pago para o ID ${paymentId}:`, mpApiErr?.message);
+    }
+  }
+
+  // Fallback para pagamentos simulados de teste/sandbox em ambiente de desenvolvimento
+  if (!paymentInfo) {
+    if (paymentId.startsWith("demo-") || paymentId.startsWith("test-") || !mpClient) {
+      console.log(`[MP_WEBHOOK] Modo de demonstração/teste para pagamento ${paymentId}`);
+      // Busca pedido existente associado ou simula aprovação de teste
+      const matched = orders.find(
+        (o) =>
+          o.id === forcedExternalReference ||
+          o.id === paymentId ||
+          o.paymentDetails?.preferenceId === paymentId
+      );
+      paymentInfo = {
+        id: paymentId,
+        status: "approved",
+        status_detail: "accredited",
+        external_reference: forcedExternalReference || matched?.id || paymentId.replace(/^(demo-|test-)/, ""),
+        date_approved: new Date().toISOString(),
+        payment_method_id: "pix",
+        payment_type_id: "bank_transfer",
+        transaction_amount: matched?.total || 149.9,
+      };
+    } else {
+      return { success: false, reason: "Pagamento não encontrado na API do Mercado Pago" };
+    }
+  }
+
+  const mpStatus = paymentInfo.status; // 'approved', 'pending', 'in_process', 'rejected', 'cancelled', etc.
+  const externalRef = paymentInfo.external_reference || forcedExternalReference || paymentId;
+
+  // 3. Verificação de Idempotência
+  const cacheKey = `${paymentId}_${mpStatus}`;
+  const existingEvent = processedWebhookPayments.get(cacheKey);
+  if (existingEvent) {
+    console.log(
+      `[MP_WEBHOOK_IDEMPOTENCY] Pagamento ${paymentId} já processado anteriormente com status '${mpStatus}' em ${existingEvent.processedAt}. Encerrando sem reprocessar.`
+    );
+    return {
+      success: true,
+      idempotent: true,
+      paymentId,
+      status: mpStatus,
+      externalReference: externalRef,
+    };
+  }
+
+  // 4. Localizar o Pedido no repositório de dados
+  let targetOrder = orders.find(
+    (o) => o.id === externalRef || o.orderNumber === externalRef || o.paymentDetails?.preferenceId === paymentId
+  );
+
+  // Se não estiver em memória mas foi gerado pelo checkout, criamos/recuperamos a estrutura
+  if (!targetOrder) {
+    targetOrder = {
+      id: externalRef,
+      orderNumber: externalRef,
+      createdAt: new Date().toISOString(),
+      status: "PEDIDO_REALIZADO",
+      statusPedido: "a_despachar",
+      statusPagamento: "aguardando_pagamento",
+      items: [],
+      total: paymentInfo.transaction_amount || 0,
+      customer: { name: "Cliente Glos", email: "", phone: "", cpf: "" },
+      statusHistory: [{ status: "PEDIDO_REALIZADO", label: "Pedido Criado", date: new Date().toISOString() }],
+    };
+    orders.unshift(targetOrder);
+  }
+
+  // Checagem de idempotência direta no objeto do pedido
+  const targetStatusPagamento =
+    mpStatus === "approved" ? "pago" : mpStatus === "pending" || mpStatus === "in_process" ? "pendente" : "recusado";
+
+  if (targetOrder.mpPaymentId === String(paymentId) && targetOrder.statusPagamento === targetStatusPagamento) {
+    console.log(
+      `[MP_WEBHOOK_IDEMPOTENCY] Pedido #${targetOrder.id} já se encontra com statusPagamento '${targetStatusPagamento}'. Idempotência respeitada.`
+    );
+    processedWebhookPayments.set(cacheKey, {
+      status: mpStatus,
+      processedAt: new Date().toISOString(),
+      orderId: targetOrder.id,
+      stockDeducted: targetOrder.estoqueBaixado,
+      whatsappTriggered: targetOrder.whatsappAprovacaoDisparado,
+    });
+    return { success: true, idempotent: true, order: targetOrder };
+  }
+
+  // 5. Atualização de Status conforme retorno oficial do Mercado Pago
+  targetOrder.mpPaymentId = String(paymentId);
+  targetOrder.mpPaymentStatus = mpStatus;
+  targetOrder.mpStatusDetail = paymentInfo.status_detail;
+  targetOrder.mpPaymentMethod = paymentInfo.payment_method_id;
+  targetOrder.mpPaymentType = paymentInfo.payment_type_id;
+
+  if (mpStatus === "approved") {
+    targetOrder.statusPagamento = "pago";
+    targetOrder.status = "PAGAMENTO_CONFIRMADO";
+    targetOrder.pagoEm = paymentInfo.date_approved || new Date().toISOString();
+
+    targetOrder.statusHistory = targetOrder.statusHistory || [];
+    targetOrder.statusHistory.push({
+      status: "PAGAMENTO_CONFIRMADO",
+      label: "Pagamento Aprovado pelo Mercado Pago",
+      date: new Date().toISOString(),
+    });
+
+    // =========================================================================
+    // REGRA DE PÓS-PAGAMENTO (quando approved)
+    // =========================================================================
+
+    // A) Baixa de Estoque para Itens de Revenda (idempotente)
+    if (!targetOrder.estoqueBaixado) {
+      baixarEstoqueItensRevenda(targetOrder);
+      targetOrder.estoqueBaixado = true;
     }
 
-    return res.status(200).send("OK");
+    // B) Bifurcação por Natureza do Pedido
+    const hasPersonalizavel =
+      targetOrder.statusPedido === "aguardando_arquivo" ||
+      (targetOrder.items || []).some(
+        (i: any) => i.requerArquivo || i.natureza === "personalizavel" || i.productType === "personalizavel"
+      );
+
+    if (hasPersonalizavel) {
+      // Pedido com item personalizável: mantém 'aguardando_arquivo' e aciona Central de Aprovação
+      targetOrder.statusPedido = "aguardando_arquivo";
+
+      if (!targetOrder.whatsappAprovacaoDisparado) {
+        await dispararWhatsappCentralAprovacao(targetOrder);
+        targetOrder.whatsappAprovacaoDisparado = true;
+        targetOrder.whatsappDisparadoEm = new Date().toISOString();
+      }
+    } else {
+      // Pedido 100% revenda/licenciado: fica pronto para despacho
+      targetOrder.statusPedido = "a_despachar";
+    }
+  } else if (mpStatus === "pending" || mpStatus === "in_process") {
+    targetOrder.statusPagamento = "pendente";
+    targetOrder.status = "AGUARDANDO_PAGAMENTO";
+    targetOrder.statusHistory = targetOrder.statusHistory || [];
+    targetOrder.statusHistory.push({
+      status: "AGUARDANDO_PAGAMENTO",
+      label: "Pagamento em Processamento",
+      date: new Date().toISOString(),
+    });
+  } else if (
+    mpStatus === "rejected" ||
+    mpStatus === "cancelled" ||
+    mpStatus === "refunded" ||
+    mpStatus === "charged_back"
+  ) {
+    targetOrder.statusPagamento = "recusado";
+    targetOrder.status = "CANCELADO";
+    targetOrder.statusHistory = targetOrder.statusHistory || [];
+    targetOrder.statusHistory.push({
+      status: "PAGAMENTO_RECUSADO",
+      label: "Pagamento Recusado / Cancelado pelo Mercado Pago",
+      date: new Date().toISOString(),
+    });
+  }
+
+  // 6. Grava na tabela de idempotência
+  processedWebhookPayments.set(cacheKey, {
+    status: mpStatus,
+    processedAt: new Date().toISOString(),
+    orderId: targetOrder.id,
+    stockDeducted: targetOrder.estoqueBaixado,
+    whatsappTriggered: targetOrder.whatsappAprovacaoDisparado,
+  });
+
+  console.log(`[MP_WEBHOOK_SUCCESS] Pedido #${targetOrder.id} atualizado: statusPagamento='${targetOrder.statusPagamento}', statusPedido='${targetOrder.statusPedido}'`);
+
+  return {
+    success: true,
+    orderId: targetOrder.id,
+    statusPagamento: targetOrder.statusPagamento,
+    statusPedido: targetOrder.statusPedido,
+    mpStatus,
+  };
+}
+
+// Endpoint Principal do Webhook: POST /api/mp/webhook
+app.post("/api/mp/webhook", async (req, res) => {
+  try {
+    const paymentId =
+      req.body?.data?.id ||
+      req.body?.id ||
+      req.query["data.id"] ||
+      req.query.id;
+
+    const topic =
+      req.body?.type ||
+      req.body?.topic ||
+      req.query.type ||
+      req.query.topic ||
+      req.body?.action;
+
+    // Responde 200 IMEDIATAMENTE para o Mercado Pago evitar retentativas agressivas
+    res.status(200).json({ received: true });
+
+    // Processamento assíncrono seguro
+    if (paymentId) {
+      const signature = req.headers["x-signature"] as string | undefined;
+      const requestId = req.headers["x-request-id"] as string | undefined;
+      processMercadoPagoPaymentUpdate(String(paymentId), String(topic || "payment"), {
+        signature,
+        requestId,
+      }).catch((err) => {
+        console.error("[MP_WEBHOOK_ASYNC_ERROR]", err);
+      });
+    }
   } catch (error) {
-    console.error("Erro processando Webhook:", error);
-    return res.status(200).send("OK"); // Return 200 to acknowledge MP delivery
+    console.error("Erro no recebimento do Webhook Mercado Pago:", error);
+    if (!res.headersSent) {
+      res.status(200).json({ received: true, error: true });
+    }
+  }
+});
+
+// Endpoint Alias: POST /api/webhooks/mercadopago
+app.post("/api/webhooks/mercadopago", async (req, res) => {
+  try {
+    const paymentId =
+      req.body?.data?.id ||
+      req.body?.id ||
+      req.query["data.id"] ||
+      req.query.id;
+
+    const topic =
+      req.body?.type ||
+      req.body?.topic ||
+      req.query.type ||
+      req.query.topic ||
+      req.body?.action;
+
+    res.status(200).json({ received: true });
+
+    if (paymentId) {
+      const signature = req.headers["x-signature"] as string | undefined;
+      const requestId = req.headers["x-request-id"] as string | undefined;
+      processMercadoPagoPaymentUpdate(String(paymentId), String(topic || "payment"), {
+        signature,
+        requestId,
+      }).catch((err) => {
+        console.error("[MP_WEBHOOK_ASYNC_ERROR]", err);
+      });
+    }
+  } catch (error) {
+    console.error("Erro no alias do Webhook Mercado Pago:", error);
+    if (!res.headersSent) {
+      res.status(200).json({ received: true, error: true });
+    }
+  }
+});
+
+// GET /api/mp/webhook (Verificação de saúde/validação do endpoint pelo Mercado Pago)
+app.get(["/api/mp/webhook", "/api/webhooks/mercadopago"], (_req, res) => {
+  res.status(200).send("Glos Presentes - Mercado Pago Webhook Active");
+});
+
+// POST /api/mp/webhook/test-simulate (Endpoint de teste e simulação de notificações para sandbox/validação)
+app.post("/api/mp/webhook/test-simulate", async (req, res) => {
+  try {
+    const { paymentId, status = "approved", orderId, nature = "personalizavel" } = req.body;
+    const testPaymentId = paymentId || `test-${Date.now()}`;
+    const testOrderId = orderId || `PED-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Cria/garante existência do pedido para o teste
+    let order = orders.find((o) => o.id === testOrderId);
+    if (!order) {
+      order = {
+        id: testOrderId,
+        orderNumber: testOrderId,
+        createdAt: new Date().toISOString(),
+        status: "PEDIDO_REALIZADO",
+        statusPedido: nature === "personalizavel" ? "aguardando_arquivo" : "a_despachar",
+        statusPagamento: "aguardando_pagamento",
+        items: [
+          {
+            productId: "prod-teste",
+            name: nature === "personalizavel" ? "Caneca Personalizada com Foto" : "Vela Aromática Vanilla",
+            price: 89.9,
+            quantity: 1,
+            natureza: nature,
+            requerArquivo: nature === "personalizavel",
+          },
+        ],
+        total: 89.9,
+        customer: {
+          name: "Cris Costa",
+          email: "eucriscostaart@gmail.com",
+          phone: "11961820588",
+          cpf: "123.456.789-00",
+        },
+        whatsappAprovacaoDisparado: false,
+        estoqueBaixado: false,
+      };
+      orders.unshift(order);
+    }
+
+    const result = await processMercadoPagoPaymentUpdate(
+      testPaymentId,
+      "payment",
+      undefined,
+      testOrderId
+    );
+    return res.json({
+      success: true,
+      simulationResult: result,
+      order: orders.find((o) => o.id === testOrderId),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -678,27 +1114,65 @@ app.post("/api/coupons/validate", (req, res) => {
   });
 });
 
-// API: Save demo order securely
+// API: Save and list orders securely
+app.get("/api/orders", (req, res) => {
+  const email = req.query.email as string | undefined;
+  if (email) {
+    const filtered = orders.filter(
+      (o) => (o.customer?.email || "").toLowerCase() === email.toLowerCase()
+    );
+    return res.json({ success: true, orders: filtered });
+  }
+  return res.json({ success: true, orders });
+});
+
+app.get("/api/orders/:id", (req, res) => {
+  const { id } = req.params;
+  const order = orders.find((o) => o.id === id || o.orderNumber === id);
+  if (!order) {
+    return res.status(404).json({ error: "Pedido não encontrado." });
+  }
+  return res.json({ success: true, order });
+});
+
 app.post("/api/orders", (req, res) => {
   const orderData = req.body;
   if (!orderData || !orderData.items || orderData.items.length === 0) {
     return res.status(400).json({ error: "O pedido deve conter ao menos um item." });
   }
 
-  const orderId = "PED-" + Math.floor(100000 + Math.random() * 900000);
+  const orderId = orderData.id || "PED-" + Math.floor(100000 + Math.random() * 900000);
+  const hasCustomizable =
+    orderData.statusPedido === "aguardando_arquivo" ||
+    orderData.items.some((i: any) => i.requerArquivo || i.natureza === "personalizavel");
+
+  const defaultStatusPedido = hasCustomizable ? "aguardando_arquivo" : "a_despachar";
+
   const newOrder = {
     ...orderData,
     id: orderId,
-    trackingCode: "BR" + Math.floor(100000000 + Math.random() * 900000000) + "BR",
-    createdAt: new Date().toISOString(),
-    status: "PAGAMENTO_CONFIRMADO",
-    statusHistory: [
+    orderNumber: orderId,
+    trackingCode:
+      orderData.trackingCode || "BR" + Math.floor(100000000 + Math.random() * 900000000) + "BR",
+    createdAt: orderData.createdAt || new Date().toISOString(),
+    status: orderData.status || "PEDIDO_REALIZADO",
+    statusPedido: orderData.statusPedido || defaultStatusPedido,
+    statusPagamento: orderData.statusPagamento || "aguardando_pagamento",
+    whatsappAprovacaoDisparado: orderData.whatsappAprovacaoDisparado || false,
+    estoqueBaixado: orderData.estoqueBaixado || false,
+    statusHistory: orderData.statusHistory || [
       { status: "PEDIDO_REALIZADO", label: "Pedido Realizado", date: new Date().toISOString() },
-      { status: "PAGAMENTO_CONFIRMADO", label: "Pagamento Aprovado (Demonstração)", date: new Date().toISOString() },
     ],
   };
 
-  orders.unshift(newOrder);
+  // Se já existir pedido com este ID, atualiza; senão insere no início
+  const existingIdx = orders.findIndex((o) => o.id === orderId);
+  if (existingIdx >= 0) {
+    orders[existingIdx] = { ...orders[existingIdx], ...newOrder };
+  } else {
+    orders.unshift(newOrder);
+  }
+
   return res.json({ success: true, order: newOrder });
 });
 

@@ -463,7 +463,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
             <div>
               <span className="text-[12px] uppercase tracking-wider text-[#004AAD] font-medium block mb-1">
-                Pedido Confirmado
+                Pedido Recebido com Sucesso
               </span>
               <h1 className="text-2xl sm:text-3xl font-medium text-[#272727]">
                 Obrigado pelo seu pedido!
@@ -472,10 +472,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 Número do pedido: <span className="font-mono text-[#272727] tabular-nums font-medium">#{orderNum}</span>
               </p>
               <p className="text-xs text-[#6B6A64] mt-1">
-                Enviamos os detalhes e a confirmação para{" "}
-                <span className="text-[#272727] font-medium">
-                  {completedOrder?.customer?.email || user?.email || "seu e-mail"}
-                </span>.
+                Recebemos seu pedido! A confirmação do pagamento é validada automaticamente em instantes via Mercado Pago.
               </p>
             </div>
 
