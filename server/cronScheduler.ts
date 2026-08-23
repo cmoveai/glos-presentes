@@ -5,7 +5,7 @@ export interface SchedulerConfig {
   scheduledHour: number; // 0-23 (default 9)
   scheduledMinute: number; // 0-59 (default 0)
   timeZone: string; // "America/Sao_Paulo"
-  targetPhone: string; // "5511989749229"
+  targetPhone: string; // "5511961820588"
   storeName: string; // "Glos Presentes"
   zApiInstance: string;
   zApiToken: string;
@@ -37,7 +37,7 @@ const DEFAULT_CONFIG: SchedulerConfig = {
   scheduledHour: 9,
   scheduledMinute: 0,
   timeZone: "America/Sao_Paulo",
-  targetPhone: "5511989749229",
+  targetPhone: "5511961820588",
   storeName: "Glos Presentes",
   zApiInstance: process.env.ZAPI_INSTANCE_ID || "3F8069943712D1188556BA5ABB7B83F8",
   zApiToken: process.env.ZAPI_TOKEN || "D7730B452CBA1B592029BC50",
@@ -53,7 +53,7 @@ let executionHistory: ExecutionLog[] = [
     timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
     formattedDate: new Date(Date.now() - 24 * 3600 * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
     type: "scheduled_cron",
-    recipientPhone: "5511989749229",
+    recipientPhone: "5511961820588",
     success: true,
     zApiSent: true,
     zApiStatus: { sent: true, messageId: "ZAPI-MSG-99210" },
@@ -171,7 +171,7 @@ export async function executeDailyReport(
     try {
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `Você é o Diretor de Inteligência Artificial e Automações da loja "${storeName}".
-Gere o RELATÓRIO DIÁRIO MATINAL DAS 09:00 para o WhatsApp do proprietário (+55 11 98974-9229).
+Gere o RELATÓRIO DIÁRIO MATINAL DAS 09:00 para o WhatsApp do proprietário (+55 11 96182-0588).
 
 Métricas das últimas 24h:
 - Receita Faturada: R$ ${revenue.toFixed(2)}

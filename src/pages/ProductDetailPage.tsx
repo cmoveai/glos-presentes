@@ -166,7 +166,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     ? Math.round(((product.price - (product.promotionalPrice || 0)) / product.price) * 100)
     : 0;
 
-  const pixPrice = currentPrice * (1 - BRAND_CONFIG.pixDiscountPercentage / 100);
   const installmentCount = product.installments || 6;
   const installmentValue = currentPrice / installmentCount;
 
@@ -500,12 +499,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     R$ {originalPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </span>
                 )}
-              </div>
-
-              <div className="text-xs text-emerald-700 font-medium flex items-center gap-1">
-                <span>
-                  R$ {pixPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} no Pix ({BRAND_CONFIG.pixDiscountPercentage}% de desconto)
-                </span>
               </div>
 
               <div className="text-xs text-stone-600">

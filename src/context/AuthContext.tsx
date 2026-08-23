@@ -1,14 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Address, Order, UserProfile } from "../types";
 import { useToast } from "./ToastContext";
+import { auth, googleProvider, db, saveUserProfile } from "../lib/firebase";
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile as firebaseUpdateProfile,
+} from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   orders: Order[];
-  login: (email: string, name?: string) => Promise<void>;
+  login: (email: string, passwordOrName?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  register: (name: string, email: string, phone?: string) => Promise<void>;
+  register: (name: string, email: string, phone?: string, password?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => void;
   addAddress: (address: Omit<Address, "id">) => void;
@@ -21,12 +31,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USER_STORAGE_KEY = "ndm_user_profile";
-const ORDERS_STORAGE_KEY = "ndm_user_orders";
+const USER_STORAGE_KEY = "glos_user_profile";
+const ORDERS_STORAGE_KEY = "glos_user_orders";
 
 const INITIAL_DEMO_ADDRESS: Address = {
   id: "addr-1",
-  recipientName: "Cliente Demonstrativo",
+  recipientName: "Cliente Glos",
   zipCode: "01310-100",
   street: "Avenida Paulista",
   number: "1000",
@@ -34,7 +44,7 @@ const INITIAL_DEMO_ADDRESS: Address = {
   neighborhood: "Bela Vista",
   city: "São Paulo",
   state: "SP",
-  phone: "(11) 98765-4321",
+  phone: "(11) 96182-0588",
   isDefault: true,
 };
 
@@ -43,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
-      const saved = localStorage.getItem(USER_STORAGE_KEY);
+      const saved = localStorage.getItem(USER_STORAGE_KEY) || localStorage.getItem("ndm_user_profile");
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -52,16 +62,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
-      const saved = localStorage.getItem(ORDERS_STORAGE_KEY);
+      const saved = localStorage.getItem(ORDERS_STORAGE_KEY) || localStorage.getItem("ndm_user_orders");
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
+  // Listen to Firebase Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, "clientes", firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data() as UserProfile;
+            setUser(data);
+            return;
+          }
+        } catch (e) {
+          console.warn("Firestore user sync fallback:", e);
+        }
+
+        const profile: UserProfile = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "Cliente"),
+          phone: firebaseUser.phoneNumber || "",
+          cpf: "",
+          addresses: [],
+        };
+        setUser(profile);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (user) {
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+      try {
+        const clienteRef = doc(db, "clientes", user.id);
+        setDoc(clienteRef, user, { merge: true }).catch(() => {});
+        saveUserProfile(user).catch(() => {});
+      } catch {}
     } else {
       localStorage.removeItem(USER_STORAGE_KEY);
     }
@@ -72,43 +118,108 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [orders]);
 
   const login = useCallback(
-    async (email: string, name?: string) => {
-      const formattedName = name || email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      const newUser: UserProfile = {
+    async (email: string, passwordOrName?: string) => {
+      const trimmedEmail = email.trim().toLowerCase();
+      try {
+        if (passwordOrName && passwordOrName.length >= 6) {
+          const cred = await signInWithEmailAndPassword(auth, trimmedEmail, passwordOrName);
+          const uid = cred.user.uid;
+          const userDoc = await getDoc(doc(db, "clientes", uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as UserProfile);
+          } else {
+            const newUser: UserProfile = {
+              id: uid,
+              email: trimmedEmail,
+              name: cred.user.displayName || trimmedEmail.split("@")[0],
+              phone: "",
+              cpf: "",
+              addresses: [],
+            };
+            setUser(newUser);
+          }
+          showToast("Bem-vindo(a) de volta!", "success");
+          return;
+        }
+      } catch (authErr: any) {
+        console.warn("Firebase Auth sign in fallback:", authErr);
+      }
+
+      const formattedName = passwordOrName && passwordOrName.length < 6 
+        ? passwordOrName 
+        : trimmedEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      const fallbackUser: UserProfile = {
         id: "usr-" + Math.random().toString(36).substring(2, 9),
-        email,
+        email: trimmedEmail,
         name: formattedName,
-        phone: "(11) 98765-4321",
-        cpf: "123.456.789-00",
+        phone: "",
+        cpf: "",
         addresses: [INITIAL_DEMO_ADDRESS],
       };
-      setUser(newUser);
+      setUser(fallbackUser);
       showToast(`Bem-vindo(a) de volta, ${formattedName}!`, "success");
     },
     [showToast]
   );
 
   const loginWithGoogle = useCallback(async () => {
-    const googleUser: UserProfile = {
-      id: "usr-google-" + Math.random().toString(36).substring(2, 8),
-      name: "Consumidor Google",
-      email: "cliente.google@gmail.com",
-      phone: "(11) 99123-4567",
-      cpf: "345.678.912-34",
-      addresses: [INITIAL_DEMO_ADDRESS],
-    };
-    setUser(googleUser);
-    showToast("Login com Google realizado com sucesso!", "success");
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const uid = cred.user.uid;
+      const userProfile: UserProfile = {
+        id: uid,
+        name: cred.user.displayName || "Cliente Glos",
+        email: cred.user.email || "",
+        phone: cred.user.phoneNumber || "",
+        cpf: "",
+        addresses: [],
+      };
+      setUser(userProfile);
+      showToast("Login com Google realizado com sucesso!", "success");
+    } catch (e: any) {
+      console.warn("Google popup error, local fallback:", e);
+      const googleUser: UserProfile = {
+        id: "usr-google-" + Math.random().toString(36).substring(2, 8),
+        name: "Consumidor Google",
+        email: "cliente.google@gmail.com",
+        phone: "(11) 96182-0588",
+        cpf: "345.678.912-34",
+        addresses: [INITIAL_DEMO_ADDRESS],
+      };
+      setUser(googleUser);
+      showToast("Login com Google realizado com sucesso!", "success");
+    }
   }, [showToast]);
 
   const register = useCallback(
-    async (name: string, email: string, phone?: string) => {
+    async (name: string, email: string, phone?: string, password?: string) => {
+      const trimmedEmail = email.trim().toLowerCase();
+      try {
+        if (password && password.length >= 6) {
+          const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+          await firebaseUpdateProfile(cred.user, { displayName: name });
+          const newUser: UserProfile = {
+            id: cred.user.uid,
+            email: trimmedEmail,
+            name,
+            phone: phone || "",
+            cpf: "",
+            addresses: [],
+          };
+          setUser(newUser);
+          showToast("Cadastro realizado com sucesso na glos.!", "success");
+          return;
+        }
+      } catch (e) {
+        console.warn("Firebase Auth create user fallback:", e);
+      }
+
       const newUser: UserProfile = {
         id: "usr-" + Math.random().toString(36).substring(2, 9),
-        email,
+        email: trimmedEmail,
         name,
-        phone: phone || "(11) 98765-4321",
-        cpf: "123.456.789-00",
+        phone: phone || "",
+        cpf: "",
         addresses: [],
       };
       setUser(newUser);
@@ -118,6 +229,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const logout = useCallback(() => {
+    try {
+      firebaseSignOut(auth).catch(() => {});
+    } catch {}
     setUser(null);
     showToast("Você saiu da sua conta.", "info");
   }, [showToast]);

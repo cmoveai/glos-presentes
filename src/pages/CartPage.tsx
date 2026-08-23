@@ -38,8 +38,6 @@ export const CartPage: React.FC<CartPageProps> = ({
     items,
     itemCount,
     subtotal,
-    pixDiscountAmount,
-    pixSubtotal,
     hasPersonalizavelItems,
     updateQuantity,
     removeFromCart,
@@ -442,14 +440,6 @@ export const CartPage: React.FC<CartPageProps> = ({
                     </span>
                   </div>
 
-                  {/* Prévia Desconto Pix */}
-                  <div className="flex items-center justify-between text-[#0F7A4F]">
-                    <span>Desconto Pix ({BRAND_CONFIG.pixDiscountPercentage}%)</span>
-                    <span className="font-medium tabular-nums">
-                      - R$ {pixDiscountAmount.toFixed(2)}
-                    </span>
-                  </div>
-
                   {/* Frete */}
                   <div className="flex items-center justify-between">
                     <span>Frete</span>
@@ -470,13 +460,6 @@ export const CartPage: React.FC<CartPageProps> = ({
                         R$ {subtotal.toFixed(2)}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-[#0F7A4F]">
-                    <span>ou no Pix com desconto:</span>
-                    <span className="font-medium tabular-nums">
-                      R$ {pixSubtotal.toFixed(2)}
-                    </span>
                   </div>
 
                   <p className="text-[10px] text-[#9B998F] pt-1">
@@ -547,9 +530,6 @@ export const CartPage: React.FC<CartPageProps> = ({
               </span>
               <span className="text-base font-medium text-[#272727] tabular-nums">
                 R$ {subtotal.toFixed(2)}
-              </span>
-              <span className="text-[10px] text-[#0F7A4F] block tabular-nums">
-                R$ {pixSubtotal.toFixed(2)} no Pix
               </span>
             </div>
 

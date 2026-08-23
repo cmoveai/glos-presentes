@@ -212,7 +212,7 @@ app.post("/api/checkout/mercadopago/preference", async (req, res) => {
     const cleanOrigin = appOrigin.replace(/\/$/, "");
 
     // Prepare items list for Mercado Pago
-    const preferenceItems: Array<{
+    let preferenceItems: Array<{
       id: string;
       title: string;
       quantity: number;
@@ -231,7 +231,17 @@ app.post("/api/checkout/mercadopago/preference", async (req, res) => {
       };
     });
 
-    // If there is shipping, add as an explicit item or charge if positive
+    // If discount exists, adjust unit prices or apply proportionally so total matches
+    const totalItemsSum = preferenceItems.reduce((acc, it) => acc + it.unit_price * it.quantity, 0);
+    if (discount > 0 && totalItemsSum > discount) {
+      const ratio = (totalItemsSum - discount) / totalItemsSum;
+      preferenceItems = preferenceItems.map((it) => ({
+        ...it,
+        unit_price: Math.max(0.01, Math.round(it.unit_price * ratio * 100) / 100),
+      }));
+    }
+
+    // If there is shipping, add as an explicit item
     if (shippingPrice > 0) {
       preferenceItems.push({
         id: "shipping-cost",
@@ -267,9 +277,9 @@ app.post("/api/checkout/mercadopago/preference", async (req, res) => {
           },
           auto_return: "approved",
           external_reference: uniqueOrderId,
-          statement_descriptor: "PRESENTE DESIGN",
+          statement_descriptor: "GLOS",
           payment_methods: {
-            installments: 12,
+            installments: 10,
           },
         },
       });
@@ -405,52 +415,11 @@ app.post("/api/shipping/calculate", async (req, res) => {
 
   // Regional calculation based on CEP prefix
   const firstDigit = cleanCep.charAt(0);
-  const isSaoPauloCapital = cleanCep.startsWith("01") || cleanCep.startsWith("02") || cleanCep.startsWith("03") || cleanCep.startsWith("04") || cleanCep.startsWith("05");
+  const firstTwoDigits = parseInt(cleanCep.substring(0, 2), 10);
+  // SP Capital and Greater SP: 01xxx to 09xxx
+  const isGreaterSaoPaulo = firstDigit === "0" || (firstTwoDigits >= 1 && firstTwoDigits <= 9);
 
-  let pacPrice = 18.9;
-  let pacDeadline = "4 a 7 dias úteis";
-  let sedexPrice = 28.9;
-  let sedexDeadline = "2 a 3 dias úteis";
-  let locationLabel = "Região Sudeste";
-
-  if (firstDigit === "0" || firstDigit === "1") {
-    // SP
-    pacPrice = 14.9;
-    pacDeadline = "2 a 4 dias úteis";
-    sedexPrice = 19.9;
-    sedexDeadline = "1 a 2 dias úteis";
-    locationLabel = isSaoPauloCapital ? "São Paulo (Capital)" : "São Paulo (Interior)";
-  } else if (firstDigit === "2" || firstDigit === "3") {
-    // RJ, ES, MG
-    pacPrice = 17.9;
-    pacDeadline = "3 a 6 dias úteis";
-    sedexPrice = 24.9;
-    sedexDeadline = "2 a 3 dias úteis";
-    locationLabel = "Sudeste (RJ/MG/ES)";
-  } else if (firstDigit === "8" || firstDigit === "9") {
-    // Sul (PR, SC, RS)
-    pacPrice = 19.9;
-    pacDeadline = "4 a 7 dias úteis";
-    sedexPrice = 29.9;
-    sedexDeadline = "2 a 4 dias úteis";
-    locationLabel = "Região Sul";
-  } else if (firstDigit === "7") {
-    // Centro-Oeste
-    pacPrice = 22.9;
-    pacDeadline = "5 a 8 dias úteis";
-    sedexPrice = 34.9;
-    sedexDeadline = "2 a 4 dias úteis";
-    locationLabel = "Região Centro-Oeste";
-  } else if (["4", "5", "6"].includes(firstDigit)) {
-    // Nordeste / Norte
-    pacPrice = 26.9;
-    pacDeadline = "6 a 10 dias úteis";
-    sedexPrice = 42.9;
-    sedexDeadline = "3 a 5 dias úteis";
-    locationLabel = "Região Nordeste/Norte";
-  }
-
-  const options: Array<{
+  let options: Array<{
     id: string;
     name: string;
     carrier: string;
@@ -458,46 +427,153 @@ app.post("/api/shipping/calculate", async (req, res) => {
     price: number;
     originalPrice: number;
     isFree: boolean;
-  }> = [
-    {
-      id: "pac",
-      name: "Econômico (Correios PAC)",
-      carrier: "Correios",
-      deadline: pacDeadline,
-      price: isFreeEligible ? 0 : pacPrice,
-      originalPrice: pacPrice,
-      isFree: isFreeEligible,
-    },
-    {
-      id: "sedex",
-      name: "Expresso (Correios SEDEX)",
-      carrier: "Correios",
-      deadline: sedexDeadline,
-      price: sedexPrice,
-      originalPrice: sedexPrice,
-      isFree: false,
-    },
-    {
-      id: "jadlog",
-      name: "Transportadora Rápida (.Package)",
-      carrier: "Jadlog / Melhor Envio",
-      deadline: pacDeadline,
-      price: Math.max(9.9, pacPrice - 2),
-      originalPrice: pacPrice - 2,
-      isFree: isFreeEligible,
-    },
-  ];
+    entregaMesmoDia?: boolean;
+  }> = [];
 
-  if (isSaoPauloCapital) {
-    options.push({
-      id: "same_day",
-      name: "Entrega Ninja / Hoje (Capitais)",
-      carrier: "Loggi Flash",
-      deadline: "Hoje até às 21h",
-      price: 29.9,
-      originalPrice: 29.9,
-      isFree: false,
-    });
+  let locationLabel = "Região Sudeste";
+
+  if (isGreaterSaoPaulo) {
+    locationLabel = "São Paulo (Capital e Grande SP)";
+    options = [
+      {
+        id: "same_day",
+        name: "Entrega no mesmo dia (SP Capital e Grande SP)",
+        carrier: "Lalamove / Motoboy Express",
+        deadline: "Hoje até às 21h",
+        price: 29.9,
+        originalPrice: 29.9,
+        isFree: false,
+        entregaMesmoDia: true,
+      },
+      {
+        id: "pac",
+        name: "Econômico (Correios PAC)",
+        carrier: "Correios",
+        deadline: "2 a 4 dias úteis",
+        price: isFreeEligible ? 0 : 14.9,
+        originalPrice: 14.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (Correios SEDEX)",
+        carrier: "Correios",
+        deadline: "1 a 2 dias úteis",
+        price: 19.9,
+        originalPrice: 19.9,
+        isFree: false,
+      },
+    ];
+  } else if (firstDigit === "1") {
+    locationLabel = "São Paulo (Interior)";
+    options = [
+      {
+        id: "pac",
+        name: "Econômico (Correios PAC)",
+        carrier: "Correios",
+        deadline: "2 a 4 dias úteis",
+        price: isFreeEligible ? 0 : 14.9,
+        originalPrice: 14.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (Correios SEDEX)",
+        carrier: "Correios",
+        deadline: "1 a 2 dias úteis",
+        price: 19.9,
+        originalPrice: 19.9,
+        isFree: false,
+      },
+    ];
+  } else if (firstDigit === "2" || firstDigit === "3") {
+    locationLabel = "Sudeste (RJ/MG/ES)";
+    options = [
+      {
+        id: "pac",
+        name: "Econômico (Transportadora / PAC)",
+        carrier: "Correios / Transportadora",
+        deadline: "3 a 6 dias úteis",
+        price: isFreeEligible ? 0 : 17.9,
+        originalPrice: 17.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (SEDEX)",
+        carrier: "Correios SEDEX",
+        deadline: "2 a 3 dias úteis",
+        price: 24.9,
+        originalPrice: 24.9,
+        isFree: false,
+      },
+    ];
+  } else if (firstDigit === "8" || firstDigit === "9") {
+    locationLabel = "Região Sul (PR/SC/RS)";
+    options = [
+      {
+        id: "pac",
+        name: "Econômico (Transportadora / PAC)",
+        carrier: "Correios / Transportadora",
+        deadline: "4 a 7 dias úteis",
+        price: isFreeEligible ? 0 : 19.9,
+        originalPrice: 19.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (SEDEX)",
+        carrier: "Correios SEDEX",
+        deadline: "2 a 4 dias úteis",
+        price: 29.9,
+        originalPrice: 29.9,
+        isFree: false,
+      },
+    ];
+  } else if (firstDigit === "7") {
+    locationLabel = "Região Centro-Oeste (DF/GO/MT/MS)";
+    options = [
+      {
+        id: "pac",
+        name: "Econômico (Transportadora / PAC)",
+        carrier: "Correios / Transportadora",
+        deadline: "5 a 8 dias úteis",
+        price: isFreeEligible ? 0 : 22.9,
+        originalPrice: 22.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (SEDEX)",
+        carrier: "Correios SEDEX",
+        deadline: "2 a 4 dias úteis",
+        price: 34.9,
+        originalPrice: 34.9,
+        isFree: false,
+      },
+    ];
+  } else {
+    locationLabel = "Região Norte e Nordeste";
+    options = [
+      {
+        id: "pac",
+        name: "Econômico (Transportadora / PAC)",
+        carrier: "Correios / Transportadora",
+        deadline: "6 a 10 dias úteis",
+        price: isFreeEligible ? 0 : 26.9,
+        originalPrice: 26.9,
+        isFree: isFreeEligible,
+      },
+      {
+        id: "sedex",
+        name: "Expresso (SEDEX)",
+        carrier: "Correios SEDEX",
+        deadline: "3 a 5 dias úteis",
+        price: 42.9,
+        originalPrice: 42.9,
+        isFree: false,
+      },
+    ];
   }
 
   return res.json({
@@ -1008,8 +1084,8 @@ const Z_API_DEFAULT_CLIENT_TOKEN = "Fb1b764204b8c48dba31c5de34cd65ddcS";
 app.post("/api/ai/daily-report", async (req, res) => {
   try {
     const { 
-      targetPhone = "5511947596045", 
-      storeName = "Ativva Gifts",
+      targetPhone = "5511961820588", 
+      storeName = "Glos Presentes",
       sendViaZApi = false,
       zApiInstance = process.env.ZAPI_INSTANCE_ID || Z_API_DEFAULT_INSTANCE,
       zApiToken = process.env.ZAPI_TOKEN || Z_API_DEFAULT_TOKEN,
@@ -1030,7 +1106,7 @@ app.post("/api/ai/daily-report", async (req, res) => {
     if (ai) {
       try {
         const prompt = `Você é o Diretor de Operações e IA da loja "${storeName}".
-Gere o RELATÓRIO DIÁRIO MATINAL DAS 09:00 para o WhatsApp do proprietário (+55 11 94759-6045).
+Gere o RELATÓRIO DIÁRIO MATINAL DAS 09:00 para o WhatsApp do proprietário (+55 11 96182-0588).
 
 Métricas das últimas 24h:
 - Receita Faturada: R$ ${revenue.toFixed(2)}

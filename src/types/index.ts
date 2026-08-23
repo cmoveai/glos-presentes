@@ -282,6 +282,10 @@ export interface OrderItemSummary {
   price: number;
   quantity: number;
   variantName?: string;
+  natureza?: "licenciado" | "personalizavel" | "simples";
+  requerArquivo?: boolean;
+  cor?: string | null;
+  textoCurto?: string | null;
 }
 
 export type OrderStatus =
@@ -410,6 +414,10 @@ export interface OrderItem {
   variantName?: string;
   productType?: "simples" | "licenciado" | "personalizavel";
   personalization?: ItemPersonalization;
+  natureza?: "licenciado" | "personalizavel" | "simples";
+  requerArquivo?: boolean;
+  cor?: string | null;
+  textoCurto?: string | null;
 }
 
 export interface InternalOrderNote {
@@ -428,10 +436,13 @@ export interface OrderActionRequired {
 export interface Order {
   id: string;
   orderNumber?: string;
+  clienteId?: string;
   createdAt: string;
   orderType?: OrderType;
   currentStep?: OrderStep;
   status: OrderStatus;
+  statusPedido?: "aguardando_arquivo" | "a_despachar" | "em_producao" | "despachado" | "entregue" | "cancelado" | string;
+  statusPagamento?: "aguardando_pagamento" | "aprovado" | "rejeitado" | "estornado" | "pago" | "pendente" | "recusado" | string;
   statusHistory: OrderStatusEvent[];
   stepHistory?: Array<{
     step: OrderStep;

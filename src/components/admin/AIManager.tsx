@@ -177,7 +177,7 @@ export const AIManager: React.FC<AIManagerProps> = ({
         fetchSchedulerStatus();
 
         if (data.zApiStatus?.sent || data.log?.zApiSent) {
-          onShowNotification?.("success", "✅ Execução do Cron realizada e enviada via Z-API para +55 11 94759-6045!");
+          onShowNotification?.("success", `✅ Execução do Cron realizada e enviada via Z-API para +55 ${BRAND_CONFIG.whatsappDisplay}!`);
         } else {
           onShowNotification?.("success", "Relatório gerado com sucesso pelo Cron!");
         }
@@ -279,7 +279,7 @@ export const AIManager: React.FC<AIManagerProps> = ({
             </div>
             <div className="px-3 py-1.5 bg-stone-900 rounded-xl border border-stone-800">
               <span className="text-[10px] uppercase font-bold text-stone-400 block">WhatsApp Destino</span>
-              <span className="text-xs font-mono font-semibold text-stone-200 mt-0.5 block">+55 11 94759-6045</span>
+              <span className="text-xs font-mono font-semibold text-stone-200 mt-0.5 block">+55 {BRAND_CONFIG.whatsappDisplay}</span>
             </div>
           </div>
         </div>
@@ -305,7 +305,7 @@ export const AIManager: React.FC<AIManagerProps> = ({
               Próximo envio automático: <span className="text-emerald-400 font-mono">{schedulerStatus?.nextExecutionFormatted || "Hoje às 09:00 (BRT)"}</span>
             </h4>
             <p className="text-xs text-stone-400 mt-0.5">
-              Destinatário: <span className="text-stone-200 font-mono">+55 (11) 94759-6045</span> • Disparo 100% autônomo via Z-API
+              Destinatário: <span className="text-stone-200 font-mono">+55 {BRAND_CONFIG.whatsappDisplay}</span> • Disparo 100% autônomo via Z-API
             </p>
           </div>
         </div>
@@ -529,7 +529,7 @@ export const AIManager: React.FC<AIManagerProps> = ({
                     type="text"
                     value={targetPhone}
                     onChange={(e) => setTargetPhone(e.target.value)}
-                    placeholder="5511947596045"
+                    placeholder={BRAND_CONFIG.whatsapp}
                     className="w-full px-4 py-2.5 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl text-xs font-mono text-stone-800 dark:text-stone-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -698,7 +698,7 @@ export const AIManager: React.FC<AIManagerProps> = ({
               </div>
               <div>
                 <p className="text-base font-bold font-mono text-stone-900 dark:text-stone-100">
-                  +55 (11) 94759-6045
+                  +55 {BRAND_CONFIG.whatsappDisplay}
                 </p>
                 <p className="text-xs text-stone-500 mt-1">Gateway Z-API Oficial Conectado</p>
               </div>

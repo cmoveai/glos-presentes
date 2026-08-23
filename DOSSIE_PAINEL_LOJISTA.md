@@ -129,9 +129,9 @@ POST /api/ai/daily-report           -> Compila métricas e envia via Z-API
 ## 5. Configuração Centralizada da Marca (`src/config/brand.ts`)
 
 Todos os parâmetros visuais e textuais da loja são centralizados:
-- **Nome da Marca:** Ativva Gifts
+- **Nome da Marca:** Glos Presentes
 - **Slogan / Rótulo:** Painel do Lojista
-- **WhatsApp Destinatário Padrão:** `+55 (11) 94759-6045`
+- **WhatsApp Destinatário Padrão:** `+55 (11) 96182-0588`
 - **Instância Z-API:** `3F8069943712D1188556BA5ABB7B83F8`
 
 ---
