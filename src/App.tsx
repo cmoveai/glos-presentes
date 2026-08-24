@@ -10,7 +10,6 @@ import { Footer } from "./components/common/Footer";
 import { CartDrawer } from "./components/common/CartDrawer";
 import { QuickViewModal } from "./components/common/QuickViewModal";
 import { AuthModal } from "./components/common/AuthModal";
-import { ExitIntentModal } from "./components/common/ExitIntentModal";
 
 // Pages
 import { HomePage } from "./pages/HomePage";
@@ -320,11 +319,6 @@ function AppContent() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-      />
-
-      {/* AI EXIT INTENT RESCUE MODAL */}
-      <ExitIntentModal
-        onProceedToCheckout={handleNavigateCheckout}
       />
 
       {/* FLOATING ADMIN QUICK ACCESS (VISIBLE FOR STORE OWNER) */}

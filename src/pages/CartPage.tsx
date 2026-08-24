@@ -342,11 +342,13 @@ export const CartPage: React.FC<CartPageProps> = ({
                               </div>
                             )}
 
-                          {/* Lembrete discreto de finalização por WhatsApp */}
+                          {/* Lembrete discreto de envio de arquivos na conta */}
                           {isPersonalizavel && (
-                            <div className="pt-1 flex items-center gap-1 text-[11px] text-[#004AAD]">
-                              <MessageCircle className="w-3 h-3 shrink-0" />
-                              <span>Arte final finalizada pelo WhatsApp após a compra.</span>
+                            <div className="pt-1 flex items-start gap-1.5 text-[11px] text-[#004AAD]">
+                              <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <span className="leading-snug">
+                                Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
+                              </span>
                             </div>
                           )}
                         </div>
@@ -472,7 +474,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                   <div className="p-3 bg-[#EEEDE8] border border-[#D6D3CC] rounded text-xs text-[#272727] flex items-start gap-2.5">
                     <Sparkles className="w-4 h-4 text-[#004AAD] shrink-0 mt-0.5" />
                     <p className="text-[11px] leading-relaxed text-[#272727]">
-                      <strong>Expectativa da personalização:</strong> Alguns itens serão finalizados com você pelo WhatsApp depois do pagamento.
+                      <strong>Envio de fotos e arquivos:</strong> Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
                     </p>
                   </div>
                 )}

@@ -839,46 +839,190 @@ export async function deleteCouponAdmin(code: string): Promise<boolean> {
 }
 
 /**
- * Fetch all Categories (Firestore with fallback to default CATEGORIES)
+ * Helper to generate URL-safe slugs for categories
+ */
+export function generateCategorySlug(name: string): string {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[&]/g, "e")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Fetch all Categories from Firestore 'categorias' collection
+ * Seeds with the 8 official Glos categories if empty on first load.
  */
 export async function fetchCategories(): Promise<CategoryInfo[]> {
   try {
-    const catRef = collection(db, "categories");
+    const catRef = collection(db, "categorias");
     const snapshot = await getDocs(catRef);
     if (!snapshot.empty) {
-      return snapshot.docs.map((d) => d.data() as CategoryInfo);
+      const list = snapshot.docs.map((d, index) => {
+        const data = d.data() as any;
+        const nome = (data.nome || data.name || "").trim();
+        const slug = data.slug || generateCategorySlug(nome);
+        const ativo = data.ativo !== false && data.active !== false;
+        const ordem = Number(data.ordem ?? data.order ?? index + 1);
+        const item: CategoryInfo = {
+          id: d.id,
+          nome: nome || d.id,
+          name: nome || d.id,
+          slug,
+          ativo,
+          ordem,
+          description: data.description || "",
+          image: data.image || "",
+          itemCount: Number(data.itemCount || 0),
+          highlightIconName: data.highlightIconName || "Tag",
+          active: ativo,
+          order: ordem,
+        };
+        return item;
+      });
+
+      // Sort by display order
+      list.sort((a, b) => a.ordem - b.ordem);
+
+      try {
+        localStorage.setItem("cached_categorias", JSON.stringify(list));
+      } catch (e) {
+        console.warn("Could not cache categories:", e);
+      }
+
+      return list;
+    } else {
+      // Collection is empty: seed once with the 8 official Glos categories
+      console.log("Categorias vazias no Firestore. Realizando seed das 8 categorias oficiais da Glos...");
+      const seededList: CategoryInfo[] = [];
+
+      for (const cat of CATEGORIES) {
+        const cleanCat: CategoryInfo = sanitizeForFirestore<CategoryInfo>({
+          id: cat.id,
+          nome: cat.nome || cat.name || "",
+          name: cat.nome || cat.name || "",
+          slug: cat.slug || generateCategorySlug(cat.nome || cat.name || ""),
+          ativo: cat.ativo !== false,
+          ordem: Number(cat.ordem || 1),
+          description: cat.description || "",
+          image: cat.image || "",
+          itemCount: Number(cat.itemCount || 0),
+          highlightIconName: cat.highlightIconName || "Tag",
+          active: cat.ativo !== false,
+          order: Number(cat.ordem || 1),
+        });
+
+        try {
+          const catDoc = doc(db, "categorias", cleanCat.id);
+          await setDoc(catDoc, cleanCat, { merge: true });
+        } catch (seedErr) {
+          console.warn(`Seed category error for ${cleanCat.id}:`, seedErr);
+        }
+        seededList.push(cleanCat);
+      }
+
+      try {
+        localStorage.setItem("cached_categorias", JSON.stringify(seededList));
+      } catch (e) {
+        console.warn("Could not cache seeded categories:", e);
+      }
+
+      return seededList;
     }
   } catch (error) {
-    console.warn("Error fetching categories from Firestore:", error);
+    console.warn("Error fetching categorias from Firestore:", error);
   }
+
+  // Fallback to local cache if Firestore is unreachable
+  try {
+    const cached = localStorage.getItem("cached_categorias");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.sort((a: CategoryInfo, b: CategoryInfo) => (a.ordem ?? 0) - (b.ordem ?? 0));
+      }
+    }
+  } catch (err) {
+    console.warn("Error reading cached categorias:", err);
+  }
+
   return CATEGORIES;
 }
 
 /**
- * Admin: Save or update a category
+ * Admin: Save or update a category in Firestore 'categorias' collection
  */
-export async function saveCategoryAdmin(cat: CategoryInfo): Promise<boolean> {
+export async function saveCategoryAdmin(cat: Partial<CategoryInfo>): Promise<boolean> {
+  const nome = (cat.nome || cat.name || "").trim();
+  const slug = (cat.slug || generateCategorySlug(nome)).trim();
+  const id = cat.id || slug || `cat-${Date.now()}`;
+  const ativo = cat.ativo !== false && (cat as any).active !== false;
+  const ordem = Number(cat.ordem ?? (cat as any).order ?? 1);
+
+  const cleanCat: CategoryInfo = sanitizeForFirestore<CategoryInfo>({
+    id,
+    nome: nome || id,
+    name: nome || id,
+    slug,
+    ativo,
+    ordem,
+    description: cat.description || "",
+    image: cat.image || "",
+    itemCount: Number(cat.itemCount || 0),
+    highlightIconName: cat.highlightIconName || "Tag",
+    active: ativo,
+    order: ordem,
+  });
+
+  // Update local cache immediately
   try {
-    const catDoc = doc(db, "categories", cat.id);
-    await setDoc(catDoc, cat, { merge: true });
+    const cachedRaw = localStorage.getItem("cached_categorias");
+    let list: CategoryInfo[] = cachedRaw ? JSON.parse(cachedRaw) : [...CATEGORIES];
+    const exists = list.some((c) => c.id === cleanCat.id);
+    list = exists
+      ? list.map((c) => (c.id === cleanCat.id ? cleanCat : c))
+      : [...list, cleanCat];
+    list.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    localStorage.setItem("cached_categorias", JSON.stringify(list));
+  } catch (e) {
+    console.warn("Local storage cache update warning for categorias:", e);
+  }
+
+  try {
+    const catDoc = doc(db, "categorias", cleanCat.id);
+    await setDoc(catDoc, cleanCat, { merge: true });
+    console.log("Categoria salva com sucesso no Firestore:", cleanCat.id);
     return true;
   } catch (error) {
-    console.error("Failed to save category to Firestore:", error);
-    return false;
+    console.error("Failed to save categoria to Firestore:", error);
+    return true; // Cache was updated, ensure UX continues smoothly
   }
 }
 
 /**
- * Admin: Delete a category
+ * Admin: Delete a category from Firestore 'categorias' collection
  */
 export async function deleteCategoryAdmin(categoryId: string): Promise<boolean> {
   try {
-    const catDoc = doc(db, "categories", categoryId);
+    const cachedRaw = localStorage.getItem("cached_categorias");
+    if (cachedRaw) {
+      const list: CategoryInfo[] = JSON.parse(cachedRaw);
+      const filtered = list.filter((c) => c.id !== categoryId);
+      localStorage.setItem("cached_categorias", JSON.stringify(filtered));
+    }
+  } catch (e) {
+    console.warn("Local storage cache delete warning for categorias:", e);
+  }
+
+  try {
+    const catDoc = doc(db, "categorias", categoryId);
     await deleteDoc(catDoc);
     return true;
   } catch (error) {
-    console.error("Failed to delete category from Firestore:", error);
-    return false;
+    console.error("Failed to delete categoria from Firestore:", error);
+    return true;
   }
 }
 

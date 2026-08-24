@@ -66,7 +66,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>Receba Novidades & Cupons Exclusivos</span>
               </h4>
               <p className="text-xs text-stone-400 mb-3">
-                Cadastre-se e ganhe 10% OFF na sua primeira compra com o cupom <strong>BEMVINDO10</strong>.
+                Cadastre-se para receber em primeira mão lançamentos, coleções afetivas e novidades.
               </p>
               <form onSubmit={handleSubscribe} className="flex gap-2 max-w-md">
                 <input

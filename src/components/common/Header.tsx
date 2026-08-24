@@ -23,7 +23,8 @@ import { useAuth } from "../../context/AuthContext";
 import { PRODUCTS } from "../../data/products";
 import { CATEGORIES } from "../../data/categories";
 import { OCCASIONS } from "../../data/occasions";
-import { ProductCategory, ProductOccasion } from "../../types";
+import { ProductCategory, ProductOccasion, CategoryInfo } from "../../types";
+import { fetchCategories } from "../../lib/firebase";
 import { BrandLogo } from "../admin/BrandLogo";
 
 interface HeaderProps {
@@ -56,6 +57,23 @@ export const Header: React.FC<HeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOccasionsDropdownOpen, setIsOccasionsDropdownOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const [navCategories, setNavCategories] = useState<CategoryInfo[]>(CATEGORIES);
+
+  useEffect(() => {
+    fetchCategories()
+      .then((cats) => {
+        if (cats && cats.length > 0) {
+          setNavCategories(cats);
+        }
+      })
+      .catch((e) => console.warn("Header fetchCategories warning:", e));
+  }, []);
+
+  const activeCategories = React.useMemo(() => {
+    return navCategories
+      .filter((c) => c.ativo !== false)
+      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  }, [navCategories]);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -406,105 +424,80 @@ export const Header: React.FC<HeaderProps> = ({
           <ul className="flex items-center gap-1 text-xs font-semibold text-stone-700 py-1">
             <li>
               <button
-                onClick={() => onNavigateCatalog("presentes-criativos")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1.5"
+                onClick={() => onNavigateCatalog(undefined)}
+                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1 text-stone-900 font-semibold"
               >
                 <Sparkles className="w-3.5 h-3.5 text-stone-900" />
-                <span>Presentes</span>
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("cozinha")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors"
-              >
-                Cozinha & Mesa
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("eletronicos")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors"
-              >
-                Eletrônicos & Tech
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("casa-utilidades")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors"
-              >
-                Casa & Utilidades
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("kits-presenteaveis")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1"
-              >
-                <Gift className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-amber-900">Kits Presenteáveis</span>
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("copos-garrafas")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors"
-              >
-                Copos & Garrafas
+                <span>Todos</span>
               </button>
             </li>
 
-            {/* Ocasiões Dropdown */}
-            <li className="relative">
-              <button
-                onClick={() => setIsOccasionsDropdownOpen((p) => !p)}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1"
-              >
-                <span>Por Ocasião</span>
-                <ChevronDown className="w-3.5 h-3.5 text-stone-600" />
-              </button>
+            {activeCategories.map((cat) => {
+              const displayName = cat.nome || cat.name || cat.id;
+              const isOfertas = cat.id === "ofertas" || cat.slug === "ofertas";
+              const isNovidades = cat.id === "novidades" || cat.slug === "novidades";
+              const isOcasiao = cat.id === "por-ocasiao" || cat.slug === "por-ocasiao";
 
-              {isOccasionsDropdownOpen && (
-                <div
-                  onMouseLeave={() => setIsOccasionsDropdownOpen(false)}
-                  className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50 grid grid-cols-1 gap-1 animate-in fade-in duration-150"
-                >
-                  {OCCASIONS.map((occ) => (
+              if (isOcasiao) {
+                return (
+                  <li key={cat.id} className="relative">
                     <button
-                      key={occ.id}
-                      onClick={() => {
-                        setIsOccasionsDropdownOpen(false);
-                        onNavigateCatalog(undefined, occ.id);
-                      }}
-                      className="text-left px-3 py-2 rounded-lg hover:bg-stone-100 text-xs font-medium text-stone-800 transition-colors flex items-center justify-between"
+                      onClick={() => setIsOccasionsDropdownOpen((p) => !p)}
+                      className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1"
                     >
-                      <span>{occ.name}</span>
-                      <span className="text-[10px] text-stone-600">Ver presentes</span>
+                      <span>{displayName}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-stone-600" />
                     </button>
-                  ))}
-                </div>
-              )}
-            </li>
 
-            <li>
-              <button
-                onClick={() => onNavigateCatalog("novidades")}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1 text-emerald-700"
-              >
-                <Flame className="w-3.5 h-3.5" />
-                <span>Novidades</span>
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigateCatalog(undefined, undefined, "ofertas")}
-                className="px-3 py-2 rounded-lg hover:bg-rose-100 text-rose-700 transition-colors flex items-center gap-1 font-bold"
-              >
-                <Percent className="w-3.5 h-3.5" />
-                <span>Ofertas</span>
-              </button>
-            </li>
+                    {isOccasionsDropdownOpen && (
+                      <div
+                        onMouseLeave={() => setIsOccasionsDropdownOpen(false)}
+                        className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50 grid grid-cols-1 gap-1 animate-in fade-in duration-150"
+                      >
+                        {OCCASIONS.map((occ) => (
+                          <button
+                            key={occ.id}
+                            onClick={() => {
+                              setIsOccasionsDropdownOpen(false);
+                              onNavigateCatalog(undefined, occ.id);
+                            }}
+                            className="text-left px-3 py-2 rounded-lg hover:bg-stone-100 text-xs font-medium text-stone-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{occ.name}</span>
+                            <span className="text-[10px] text-stone-600">Ver presentes</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              }
+
+              return (
+                <li key={cat.id}>
+                  <button
+                    onClick={() => {
+                      if (isOfertas) {
+                        onNavigateCatalog(undefined, undefined, "ofertas");
+                      } else {
+                        onNavigateCatalog(cat.id as any);
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1 ${
+                      isOfertas
+                        ? "hover:bg-rose-100 text-rose-700 font-medium"
+                        : isNovidades
+                        ? "hover:bg-stone-200/70 text-emerald-700"
+                        : "hover:bg-stone-200/70 hover:text-stone-950"
+                    }`}
+                  >
+                    {isNovidades && <Flame className="w-3.5 h-3.5" />}
+                    {isOfertas && <Percent className="w-3.5 h-3.5" />}
+                    <span>{displayName}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </nav>
@@ -531,17 +524,23 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="text-xs font-bold text-stone-600 uppercase tracking-wider px-2 mb-2">
                 Categorias Principais
               </div>
-              {CATEGORIES.map((cat) => (
+              {activeCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    onNavigateCatalog(cat.id);
+                    if (cat.id === "ofertas" || cat.slug === "ofertas") {
+                      onNavigateCatalog(undefined, undefined, "ofertas");
+                    } else {
+                      onNavigateCatalog(cat.id as any);
+                    }
                   }}
                   className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 text-sm font-medium text-stone-800 flex items-center justify-between"
                 >
-                  <span>{cat.name}</span>
-                  <span className="text-xs text-stone-600">{cat.itemCount} itens</span>
+                  <span>{cat.nome || cat.name || cat.id}</span>
+                  {cat.itemCount ? (
+                    <span className="text-xs text-stone-600">{cat.itemCount} itens</span>
+                  ) : null}
                 </button>
               ))}
             </div>

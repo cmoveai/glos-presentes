@@ -53,7 +53,7 @@ export const BRAND_CONFIG: BrandConfig = {
   phoneDisplay: "(11) 96182-0588",
   openingHours: "Segunda a Sexta das 09h às 18h | Sábado das 09h às 13h",
   freeShippingThreshold: 249.0, // Frete grátis acima de R$ 249
-  maxInstallmentsWithoutInterest: 6,
+  maxInstallmentsWithoutInterest: 10,
   pixDiscountPercentage: 5, // 5% de desconto no Pix
   cnpjPlaceholder: "00.000.000/0001-00 (Demonstrativo)",
   addressPlaceholder: "São Paulo - SP, Brasil",

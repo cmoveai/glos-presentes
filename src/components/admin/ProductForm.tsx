@@ -235,7 +235,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       shortDescription,
       description,
       category: categoryId as any,
-      categoryName: selectedCategoryObj?.name || "Presentes",
+      categoryName: selectedCategoryObj?.nome || selectedCategoryObj?.name || "Presentes",
       brandId,
       brandName: selectedBrandObj?.name || "glos. atelier",
       fornecedorId: finalFornecedorId,
@@ -1048,7 +1048,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.nome || c.name || c.id}
                 </option>
               ))}
             </select>

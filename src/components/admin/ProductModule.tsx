@@ -20,7 +20,7 @@ import {
   ProductReview,
   Supplier,
 } from "../../types";
-import { fetchSuppliers, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA } from "../../lib/firebase";
+import { fetchSuppliers, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA, fetchCategories } from "../../lib/firebase";
 import {
   getProductsFromStorage,
   saveProductsToStorage,
@@ -61,13 +61,19 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
   const [reviews, setReviews] = useState<ProductReview[]>(() => getReviewsFromStorage());
   const [suppliers, setSuppliers] = useState<Supplier[]>([DEFAULT_SUPPLIER_FABRICACAO_PROPRIA]);
 
-  // Carrega fornecedores do Firestore
+  // Carrega fornecedores e categorias do Firestore
   useEffect(() => {
     fetchSuppliers()
       .then((list) => {
         if (list && list.length > 0) setSuppliers(list);
       })
       .catch((err) => console.warn("Erro ao buscar fornecedores:", err));
+
+    fetchCategories()
+      .then((cats) => {
+        if (cats && cats.length > 0) setCategories(cats);
+      })
+      .catch((err) => console.warn("Erro ao buscar categorias:", err));
   }, []);
 
   // Estado de edição de produto

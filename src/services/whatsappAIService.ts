@@ -34,8 +34,8 @@ REGRAS DE OPERAÇÃO:
 `;
 
 /**
- * Interface para configuração da Z-API (WhatsApp Business API)
- * Nota de Segurança: Credenciais (ZAPI_INSTANCE_ID, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN)
+ * Interface para configuração da integração WhatsApp (Glos Presentes)
+ * Nota de Segurança: Credenciais
  * devem ser lidas exclusivamente de variáveis de ambiente no servidor (process.env).
  */
 export interface ZApiConfig {
@@ -47,7 +47,6 @@ export interface ZApiConfig {
 }
 
 export const getZApiStatus = (): ZApiConfig => {
-  // Em produção no servidor, estas variáveis são injetadas via env
   return {
     instanceId: "glos-live-inst-01",
     token: "configured_in_server_env",
@@ -58,7 +57,7 @@ export const getZApiStatus = (): ZApiConfig => {
 };
 
 /**
- * 5.1.1 - Gerador de Mensagem: Pedir Arquivo ao Cliente (Comando 15 — Upload em Alta Resolução no Site)
+ * 5.1.1 - Gerador de Mensagem: Pedir Arquivo ao Cliente (Upload em Alta Resolução no Site)
  */
 export const gerarMensagemPedirArquivo = (
   customerName: string,
@@ -66,7 +65,7 @@ export const gerarMensagemPedirArquivo = (
   orderNumber: string
 ): string => {
   const firstName = customerName.split(" ")[0];
-  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara!\n\nPara garantir a máxima nitidez e acabamento na gravação do seu presente (sem a perda de qualidade do WhatsApp), por favor faça o upload das suas fotos ou áudios em alta resolução direto na sua Área do Cliente:\n👉 https://glos.com.br/minha-conta\n\nAssim que você enviar por lá, a Cris no nosso ateliê já vai preparar a prova visual com todo carinho para você aprovar aqui! Se tiver qualquer dúvida, é só me chamar por aqui.`;
+  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara!\n\nPara garantir a máxima nitidez e acabamento na confecção do seu presente, por favor faça o upload das suas fotos em alta resolução direto na sua Área do Cliente:\n👉 https://glos.com.br/minha-conta\n\nAssim que você enviar por lá, a Cris no nosso ateliê já vai preparar a prova visual com todo carinho para você aprovar aqui! Se tiver qualquer dúvida, é só me chamar por aqui.`;
 };
 
 /**
@@ -100,33 +99,26 @@ export const gerarMensagemAprovado = (
 };
 
 /**
- * 5.1.5 - Gerador de Mensagem: Confirmação de Ajuste Solicitado
- */
-export const gerarMensagemAjusteSolicitado = (
-  customerName: string,
-  ajusteDescricao: string
-): string => {
-  const firstName = customerName.split(" ")[0];
-  return `Entendido perfeitamente, ${firstName}! Já anotei o seu pedido de ajuste: "${ajusteDescricao}". A Cris vai fazer essa alteração na arte e assim que a nova prévia estiver pronta, te mando aqui novamente para você conferir. Pode ficar tranquilo(a) que vai ficar lindo!`;
-};
-
-/**
- * 5.1.6 - Interpretador Inteligente de Respostas do Cliente (Simula IA Gemini / Parser de Afeto)
+ * Interpretador de Linguagem Natural Local (Regras Heurísticas Afetivas)
  */
 export const interpretarRespostaCliente = (
-  texto: string,
+  textoCliente: string,
   estadoAtual: ArtApprovalState
 ): {
-  intent: "aprovacao" | "solicitacao_ajuste" | "envio_arquivo" | "duvida_prazo" | "outro";
+  intent: "envio_arquivo" | "aprovacao" | "solicitacao_ajuste" | "duvida_prazo" | "outro";
   adjustmentNotes?: string;
   nextState: ArtApprovalState;
   replyText: string;
 } => {
-  const lower = texto.toLowerCase().trim();
+  const texto = textoCliente.trim();
+  const lower = texto.toLowerCase();
 
-  // Caso 1: Envio de arquivo enquanto aguardava arquivo
+  // Caso 1: Envio de arquivo / texto de personalização
   if (
-    estadoAtual === "aguardando_arquivo" ||
+    lower.includes("http") ||
+    lower.includes(".jpg") ||
+    lower.includes(".png") ||
+    lower.includes(".mp3") ||
     lower.includes("foto") ||
     lower.includes("segue a imagem") ||
     lower.includes("mandei o arquivo") ||
@@ -206,7 +198,6 @@ export const interpretarRespostaCliente = (
   const ehAjuste = termosAjuste.some((termo) => lower.includes(termo)) || lower.includes("mas ") || lower.includes("porém");
 
   if (ehAjuste) {
-    // Extrai o conteúdo do ajuste como nota para a Cris
     let ajusteTexto = texto;
     if (lower.startsWith("gostaria de ") || lower.startsWith("tem como ")) {
       ajusteTexto = texto;
@@ -239,408 +230,24 @@ export const interpretarRespostaCliente = (
 
 /**
  * ============================================================================
- * SEED MOCK INICIAL DE SESSÕES DE APROVAÇÃO DE ARTE
- * Cobre todos os 5 estados da máquina para demonstração imediata:
- * 1. aguardando_arquivo
- * 2. arquivo_recebido (esperando a Cris montar mockup)
- * 3. aguardando_aprovacao (mockup enviado, aguardando cliente)
- * 4. ajuste_solicitado (com texto capturado pela IA)
- * 5. aprovado (produção liberada)
+ * SESSÕES DE APROVAÇÃO DE ARTE (Nasce vazia para estado honesto de lançamento)
  * ============================================================================
  */
-const INITIAL_APPROVAL_SESSIONS: ArtApprovalSession[] = [
-  // 1. Arquivo Recebido — CRIS PRECISA AGIR (Montar Mockup)
-  {
-    id: "session-001",
-    orderId: "ord-001",
-    orderNumber: "#00142",
-    itemId: "item-001-caneca",
-    productName: "Caneca Foto & Frase Afeto (325ml)",
-    productImage: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80",
-    customerName: "Camila Rocha",
-    customerPhone: "(11) 98765-4321",
-    state: "arquivo_recebido",
-    requiresCrisAction: true,
-    rejectionCount: 0,
-    createdAt: "22 ago, 09:15",
-    updatedAt: "22 ago, 10:40",
-    customerTextDeclaration: "Para o melhor pai do mundo, com todo amor de Camila e Lucas.",
-    customerUploadedFiles: [
-      {
-        id: "file-camila-01",
-        name: "foto_familia_camila_alta_resolucao.jpg",
-        url: "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80",
-        type: "imagem",
-        size: "4.2 MB",
-        uploadedAt: "22 ago, 10:38",
-      },
-    ],
-    stateHistory: [
-      {
-        id: "hist-001",
-        state: "aguardando_arquivo",
-        timestamp: "22 ago, 09:15",
-        actor: "ia",
-        description: "IA Glos enviou mensagem inicial acolhedora solicitando a foto e a dedicatória no WhatsApp.",
-      },
-      {
-        id: "hist-002",
-        state: "arquivo_recebido",
-        timestamp: "22 ago, 10:40",
-        actor: "cliente",
-        description: "Cliente Camila enviou a foto em alta resolução e o texto da caneca pelo WhatsApp.",
-      },
-    ],
-    conversationThread: [
-      {
-        id: "msg-001",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 09:15",
-        text: "Olá, Camila! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido #00142 (Caneca Foto & Frase Afeto) já está confirmado e agora queremos deixá-lo com a sua cara! Por favor, nos envie por aqui a foto em boa resolução e o texto que você deseja colocar na arte. Assim que você mandar, a Cris no nosso ateliê vai montar a prova visual para você ver como vai ficar!",
-        status: "read",
-      },
-      {
-        id: "msg-002",
-        sender: "cliente",
-        senderName: "Camila Rocha",
-        timestamp: "22 ago, 10:38",
-        text: "Oi! Bom dia! Segue a foto nossa em família e a frase que quero colocar: 'Para o melhor pai do mundo, com todo amor de Camila e Lucas.'",
-        mediaUrl: "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80",
-        mediaType: "image",
-        status: "read",
-        intentDetected: "envio_arquivo",
-      },
-      {
-        id: "msg-003",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 10:40",
-        text: "Perfeito, Camila! Recebemos sua foto com sucesso aqui no ateliê. A Cris já está preparando a prova visual com todo carinho e logo te envio aqui para você aprovar antes de produzirmos!",
-        status: "read",
-      },
-    ],
-  },
-
-  // 2. Ajuste Solicitado — CRIS PRECISA AGIR (Subir Novo Mockup com Ajuste)
-  {
-    id: "session-002",
-    orderId: "ord-002",
-    orderNumber: "#00141",
-    itemId: "item-002-quadro",
-    productName: "Quadro Spotify Interativo com Moldura A4",
-    productImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80",
-    customerName: "Lucas Mendes",
-    customerPhone: "(21) 99876-5432",
-    state: "ajuste_solicitado",
-    requiresCrisAction: true,
-    rejectionReason: "Trocar a foto por uma mais nítida e colocar o título da música em fonte branca ao invés de cinza.",
-    rejectionCount: 1,
-    createdAt: "21 ago, 16:20",
-    updatedAt: "22 ago, 11:15",
-    customerSongOrUrl: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
-    customerUploadedFiles: [
-      {
-        id: "file-lucas-01",
-        name: "foto_viagem_casal_nova.jpg",
-        url: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&q=80",
-        type: "imagem",
-        size: "3.8 MB",
-        uploadedAt: "22 ago, 11:12",
-      },
-    ],
-    mockupUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&q=80",
-    mockupGeneratedAt: "22 ago, 08:30",
-    mockupUploadedBy: "Cris (Ateliê)",
-    stateHistory: [
-      {
-        id: "hist-003",
-        state: "aguardando_arquivo",
-        timestamp: "21 ago, 16:20",
-        actor: "ia",
-        description: "IA Glos solicitou foto e link da música no WhatsApp.",
-      },
-      {
-        id: "hist-004",
-        state: "arquivo_recebido",
-        timestamp: "21 ago, 18:05",
-        actor: "cliente",
-        description: "Lucas enviou foto do casal e link do Spotify.",
-      },
-      {
-        id: "hist-005",
-        state: "aguardando_aprovacao",
-        timestamp: "22 ago, 08:35",
-        actor: "ia",
-        description: "Cris montou a 1ª versão do mockup e IA Glos disparou para aprovação do cliente.",
-      },
-      {
-        id: "hist-006",
-        state: "ajuste_solicitado",
-        timestamp: "22 ago, 11:15",
-        actor: "ia",
-        description: "IA Glos interpretou mensagem do cliente, capturou pedido de ajuste e notificou a Cris.",
-      },
-    ],
-    conversationThread: [
-      {
-        id: "msg-004",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 08:35",
-        text: "Oi, Lucas! A Cris preparou a prova visual do seu Quadro Spotify com todo carinho! Dá uma olhadinha nessa prévia: confira a foto, os nomes e o código da música. Ficou do jeitinho que você imaginou para a gente produzir ou você gostaria de fazer algum ajuste na arte?",
-        mediaUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&q=80",
-        mediaType: "image",
-        status: "read",
-      },
-      {
-        id: "msg-005",
-        sender: "cliente",
-        senderName: "Lucas Mendes",
-        timestamp: "22 ago, 11:12",
-        text: "Oi! A arte ficou linda, mas achei que a foto original que mandei ficou um pouco sem nitidez na impressão. Acabei de achar uma foto com qualidade melhor e mandei em anexo. Também tem como colocar o título da música em branco bem nítido?",
-        mediaUrl: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&q=80",
-        mediaType: "image",
-        status: "read",
-        intentDetected: "solicitacao_ajuste",
-        adjustmentNotes: "Trocar a foto por uma mais nítida e colocar o título da música em fonte branca ao invés de cinza.",
-      },
-      {
-        id: "msg-006",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 11:15",
-        text: "Entendido perfeitamente, Lucas! Já anotei o seu pedido de ajuste para trocar pela nova foto mais nítida e destacar o título em branco. A Cris vai fazer essa alteração na arte e assim que a nova prévia estiver pronta, te mando aqui novamente para você conferir. Fique tranquilo que vai ficar incrível!",
-        status: "read",
-      },
-    ],
-  },
-
-  // 3. Aguardando Aprovação do Cliente
-  {
-    id: "session-003",
-    orderId: "ord-003",
-    orderNumber: "#00140",
-    itemId: "item-003-chaveiro",
-    productName: "Chaveiro Spotify com Gravação a Laser & Foto",
-    productImage: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80",
-    customerName: "Mariana Souza",
-    customerPhone: "(31) 98888-7777",
-    state: "aguardando_aprovacao",
-    requiresCrisAction: false,
-    rejectionCount: 0,
-    createdAt: "22 ago, 11:00",
-    updatedAt: "22 ago, 13:20",
-    customerUploadedFiles: [
-      {
-        id: "file-mariana-01",
-        name: "foto_namorados_praia.jpg",
-        url: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&q=80",
-        type: "imagem",
-        size: "2.9 MB",
-        uploadedAt: "22 ago, 11:45",
-      },
-    ],
-    mockupUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80",
-    mockupGeneratedAt: "22 ago, 13:20",
-    mockupUploadedBy: "Cris (Ateliê)",
-    stateHistory: [
-      {
-        id: "hist-007",
-        state: "aguardando_arquivo",
-        timestamp: "22 ago, 11:00",
-        actor: "ia",
-        description: "IA Glos solicitou foto e dedicatória.",
-      },
-      {
-        id: "hist-008",
-        state: "arquivo_recebido",
-        timestamp: "22 ago, 11:45",
-        actor: "cliente",
-        description: "Mariana enviou a foto da praia.",
-      },
-      {
-        id: "hist-009",
-        state: "aguardando_aprovacao",
-        timestamp: "22 ago, 13:20",
-        actor: "ia",
-        description: "Cris subiu a prova visual do chaveiro e a IA Glos enviou para aprovação no WhatsApp.",
-      },
-    ],
-    conversationThread: [
-      {
-        id: "msg-007",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 11:00",
-        text: "Olá, Mariana! Tudo bem? 🌸 Muito obrigada por escolher a Glos Presentes! Seu pedido #00140 (Chaveiro Spotify) já está confirmado. Envie por aqui a foto do casal para prepararmos a arte!",
-        status: "read",
-      },
-      {
-        id: "msg-008",
-        sender: "cliente",
-        senderName: "Mariana Souza",
-        timestamp: "22 ago, 11:45",
-        text: "Oi! Mandei a foto em anexo. A música é 'Apenas Mais Uma de Amor' do Lulu Santos!",
-        mediaUrl: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&q=80",
-        mediaType: "image",
-        status: "read",
-        intentDetected: "envio_arquivo",
-      },
-      {
-        id: "msg-009",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 13:20",
-        text: "Oi, Mariana! A Cris preparou a prova visual do seu Chaveiro Spotify com todo carinho! Dá uma olhadinha nessa prévia: confira a foto, os nomes e o código da música. Ficou do jeitinho que você imaginou para a gente produzir ou você gostaria de fazer algum ajuste na arte?",
-        mediaUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&q=80",
-        mediaType: "image",
-        status: "delivered",
-      },
-    ],
-  },
-
-  // 4. Aguardando Envio de Arquivo
-  {
-    id: "session-004",
-    orderId: "ord-004",
-    orderNumber: "#00139",
-    itemId: "item-004-caneca-qr",
-    productName: "Caneca Interativa com QR Code de Vídeo Afetivo",
-    productImage: "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=400&q=80",
-    customerName: "Rafael Albuquerque",
-    customerPhone: "(41) 97777-6666",
-    state: "aguardando_arquivo",
-    requiresCrisAction: false,
-    rejectionCount: 0,
-    createdAt: "22 ago, 14:10",
-    updatedAt: "22 ago, 14:10",
-    customerUploadedFiles: [],
-    stateHistory: [
-      {
-        id: "hist-010",
-        state: "aguardando_arquivo",
-        timestamp: "22 ago, 14:10",
-        actor: "ia",
-        description: "IA Glos enviou mensagem de boas-vindas e solicitou o link/vídeo da dedicatória.",
-      },
-    ],
-    conversationThread: [
-      {
-        id: "msg-010",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 14:10",
-        text: "Olá, Rafael! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente tão especial. Seu pedido #00139 (Caneca Interativa QR Code) já está confirmado e agora precisamos do link do vídeo ou dedicatória que você quer conectar ao QR Code! Por favor, envie por aqui o link do YouTube, Drive ou o próprio arquivo de vídeo. Assim que você mandar, a Cris no ateliê vai gerar a matriz interativa!",
-        status: "delivered",
-      },
-    ],
-  },
-
-  // 5. Aprovado (Avançado para Produção)
-  {
-    id: "session-005",
-    orderId: "ord-005",
-    orderNumber: "#00138",
-    itemId: "item-005-azulejo",
-    productName: "Azulejo Personalizado com Suporte Decorativo",
-    productImage: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&q=80",
-    customerName: "Beatriz Nogueira",
-    customerPhone: "(19) 99123-4567",
-    state: "aprovado",
-    requiresCrisAction: false,
-    rejectionCount: 0,
-    createdAt: "21 ago, 10:00",
-    updatedAt: "22 ago, 09:30",
-    customerUploadedFiles: [
-      {
-        id: "file-beatriz-01",
-        name: "foto_bodas_pais_1985.jpg",
-        url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80",
-        type: "imagem",
-        size: "5.1 MB",
-        uploadedAt: "21 ago, 11:20",
-      },
-    ],
-    mockupUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&q=80",
-    mockupGeneratedAt: "21 ago, 15:40",
-    mockupUploadedBy: "Cris (Ateliê)",
-    stateHistory: [
-      {
-        id: "hist-011",
-        state: "aguardando_arquivo",
-        timestamp: "21 ago, 10:00",
-        actor: "ia",
-        description: "IA Glos solicitou foto antiga das bodas.",
-      },
-      {
-        id: "hist-012",
-        state: "arquivo_recebido",
-        timestamp: "21 ago, 11:20",
-        actor: "cliente",
-        description: "Beatriz enviou a fotografia escaneada.",
-      },
-      {
-        id: "hist-013",
-        state: "aguardando_aprovacao",
-        timestamp: "21 ago, 15:40",
-        actor: "ia",
-        description: "Cris montou a arte do azulejo e a IA Glos enviou no WhatsApp.",
-      },
-      {
-        id: "hist-014",
-        state: "aprovado",
-        timestamp: "22 ago, 09:30",
-        actor: "cliente",
-        description: "Beatriz aprovou com entusiasmo a prova visual. Pedido avançou para estamparia e produção!",
-      },
-    ],
-    conversationThread: [
-      {
-        id: "msg-011",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "21 ago, 15:40",
-        text: "Oi, Beatriz! A Cris preparou a prova visual do seu Azulejo Personalizado com todo carinho! Dá uma olhadinha nessa prévia: restauramos o contraste da foto antiga para a cerâmica. Ficou do jeitinho que você imaginou para a gente produzir?",
-        mediaUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&q=80",
-        mediaType: "image",
-        status: "read",
-      },
-      {
-        id: "msg-012",
-        sender: "cliente",
-        senderName: "Beatriz Nogueira",
-        timestamp: "22 ago, 09:28",
-        text: "Nossa, que trabalho lindo! Emocionada aqui! Ficou perfeito demais, pode produzir sim!",
-        status: "read",
-        intentDetected: "aprovacao",
-      },
-      {
-        id: "msg-013",
-        sender: "ia",
-        senderName: "IA Glos Presentes",
-        timestamp: "22 ago, 09:30",
-        text: "Que alegria, Beatriz! Sua arte do Azulejo Personalizado foi aprovada com sucesso! 💖 Já encaminhamos a matriz para a bancada de produção do nosso ateliê. Cuidaremos de cada detalhe com muito carinho para ficar perfeito!",
-        status: "read",
-      },
-    ],
-  },
-];
+const INITIAL_APPROVAL_SESSIONS: ArtApprovalSession[] = [];
 
 const STORAGE_KEY = "glos_art_approval_sessions_v1";
 
 export const getApprovalSessionsFromStorage = (): ArtApprovalSession[] => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_APPROVAL_SESSIONS));
-      return INITIAL_APPROVAL_SESSIONS;
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
     }
-    return JSON.parse(data);
   } catch (error) {
     console.error("Erro ao carregar sessões de aprovação de arte:", error);
-    return INITIAL_APPROVAL_SESSIONS;
   }
+  return INITIAL_APPROVAL_SESSIONS;
 };
 
 export const saveApprovalSessionsToStorage = (

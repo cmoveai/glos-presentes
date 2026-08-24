@@ -166,7 +166,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     ? Math.round(((product.price - (product.promotionalPrice || 0)) / product.price) * 100)
     : 0;
 
-  const installmentCount = product.installments || 6;
+  const installmentCount = product.installments || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
   const installmentValue = currentPrice / installmentCount;
 
   // Check if variants have varying prices
@@ -392,7 +392,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             {/* Legenda Obrigatória Discreta para Personalizáveis */}
             {productNature === "personalizavel" && (
               <p className="text-center text-xs text-stone-500 italic">
-                Prévia ilustrativa. A arte final é finalizada com você pelo WhatsApp.
+                Prévia ilustrativa. Após a compra, envie sua foto em Minha Conta → Meus Pedidos para a Cris preparar sua prova visual.
               </p>
             )}
 
@@ -638,18 +638,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   </p>
                 </div>
 
-                {/* Aviso Obrigatório de Arquivo Pesado (WhatsApp) */}
-                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-start gap-3 text-xs text-emerald-950">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5">
+                {/* Aviso Obrigatório de Envio de Arquivo no Site */}
+                <div className="p-3.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-xl flex items-start gap-3 text-xs text-[#272727]">
+                  <div className="w-8 h-8 rounded-lg bg-[#004AAD] text-white flex items-center justify-center shrink-0 mt-0.5">
                     <MessageCircle className="w-4 h-4 fill-current" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-emerald-900">
-                      Tem foto, vídeo ou áudio pra colocar?
+                    <h4 className="font-medium text-[#272727]">
+                      Tem foto, vídeo ou áudio para anexar?
                     </h4>
-                    <p className="text-emerald-800 text-[11px] leading-relaxed mt-0.5">
-                      Sem problema — depois da compra a gente finaliza sua arte pelo WhatsApp, sem
-                      travar aqui. Você aprova o mockup oficial antes de produzirmos!
+                    <p className="text-[#6B6A64] text-[11px] leading-relaxed mt-0.5">
+                      Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho antes de produzir!
                     </p>
                   </div>
                 </div>
@@ -838,8 +837,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 Como funciona a personalização?
               </h2>
               <p className="text-xs text-stone-600 mt-1">
-                Sem complicação: você garante seu presente agora e nós cuidamos de cada detalhe com
-                você pelo WhatsApp.
+                Sem complicação: você garante seu presente agora e envia seus arquivos na sua conta para a Cris preparar a arte.
               </p>
             </div>
 
@@ -866,17 +864,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200/80 flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-900 mb-3 shadow-xs">
-                    <MessageCircle className="w-5 h-5 text-emerald-700" />
+                    <MessageCircle className="w-5 h-5 text-[#004AAD]" />
                   </div>
-                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-[#004AAD] uppercase tracking-wider">
                     Passo 2
                   </span>
                   <h3 className="text-sm font-bold text-stone-900 mt-0.5 mb-1.5">
-                    2. Envie sua foto pelo WhatsApp
+                    2. Envie seus arquivos no site
                   </h3>
                   <p className="text-xs text-stone-600 leading-relaxed">
-                    Após a compra, nossa equipe te chama para receber foto, vídeo ou áudio em alta
-                    resolução.
+                    Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos).
                   </p>
                 </div>
               </div>

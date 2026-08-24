@@ -27,6 +27,7 @@ import {
   UserCheck,
   LogOut,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 
 interface CheckoutPageProps {
@@ -480,26 +481,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             {hasPersonalizavel && (
               <div className="bg-[#EEEDE8] border border-[#D6D3CC] rounded-[8px] p-4 text-left space-y-3">
                 <div className="flex items-start gap-2.5">
-                  <MessageCircle className="w-5 h-5 text-[#004AAD] shrink-0 mt-0.5" />
+                  <Sparkles className="w-5 h-5 text-[#004AAD] shrink-0 mt-0.5" />
                   <div>
                     <h3 className="text-xs font-medium text-[#272727]">
                       Seu pedido contém presente personalizado
                     </h3>
                     <p className="text-xs text-[#6B6A64] mt-1 leading-relaxed">
-                      Para garantirmos que cada detalhe fique perfeito, envie suas fotos ou mensagens diretamente para o nosso WhatsApp de atendimento. Nossa designer prepara a prévia com todo o carinho!
+                      Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho antes de produzir!
                     </p>
                   </div>
                 </div>
 
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 bg-[#004AAD] hover:bg-[#003882] text-white text-xs font-medium rounded-[8px] flex items-center justify-center gap-2 transition-colors"
+                <button
+                  type="button"
+                  onClick={onNavigateAccount}
+                  className="w-full py-2.5 px-4 bg-[#004AAD] hover:bg-[#003882] text-white text-xs font-medium rounded-[8px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Enviar fotos no WhatsApp (11) 96182-0588</span>
-                </a>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Enviar arquivos em Minha Conta</span>
+                </button>
               </div>
             )}
 
@@ -1283,7 +1283,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <p className="text-[#272727] font-medium mb-0.5">
                       🎨 Detalhes da Personalização
                     </p>
-                    Após a confirmação do pedido, nossa equipe alinha fotos e mensagens pelo WhatsApp com você antes da produção.
+                    Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
                   </div>
                 )}
 

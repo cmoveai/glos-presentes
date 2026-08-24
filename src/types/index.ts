@@ -215,12 +215,17 @@ export interface Product {
 
 export interface CategoryInfo {
   id: ProductCategory;
+  nome: string;
   slug: string;
-  name: string;
-  description: string;
-  image: string;
+  ativo: boolean;
+  ordem: number;
+  name?: string;
+  description?: string;
+  image?: string;
   itemCount?: number;
   highlightIconName?: string;
+  active?: boolean;
+  order?: number;
 }
 
 export interface OccasionInfo {

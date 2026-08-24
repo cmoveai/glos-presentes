@@ -107,6 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navegação e Grupos */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 no-scrollbar">
         {/* GRUPO 1: Principal & Análise */}
+        {/* GRUPO 1: Principal & Análise */}
         <SidebarGroup label="Principal & Análise" isCollapsed={isCollapsed}>
           <SidebarItem
             id="inicio"
@@ -141,14 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onSelectSection(id, subId, "Estatísticas", subId ? subLabels[subId] : undefined, "Principal & Análise");
             }}
           />
-          <SidebarItem
-            id="relatorios"
-            label="Relatórios"
-            icon={FileText}
-            active={activeSection.id === "relatorios"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("relatorios", undefined, "Relatórios", undefined, "Principal & Análise")}
-          />
+          {/* Relatórios oculto temporariamente até construção de tela dedicada */}
         </SidebarGroup>
 
         {/* GRUPO 2: Gestão & Operação */}
@@ -163,35 +157,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             subItems={[
               { id: "listar", label: "Listar pedidos" },
               { id: "aprovacoes", label: "Aprovação de arte (IA)" },
-              { id: "criar", label: "Criar pedido" },
-              { id: "link-carrinho", label: "Link de carrinho" },
             ]}
             onSelect={(id, subId) => {
               const subLabels: Record<string, string> = {
                 listar: "Listar pedidos",
                 aprovacoes: "Aprovação de arte (IA)",
-                criar: "Criar pedido",
-                "link-carrinho": "Link de carrinho",
               };
               onSelectSection(id, subId, "Vendas", subId ? subLabels[subId] : undefined, "Gestão & Operação");
             }}
           />
-          <SidebarItem
-            id="carrinhos-abandonados"
-            label="Carrinhos Abandonados"
-            icon={ShoppingCart}
-            active={activeSection.id === "carrinhos-abandonados"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("carrinhos-abandonados", undefined, "Carrinhos Abandonados", undefined, "Gestão & Operação")}
-          />
-          <SidebarItem
-            id="ia"
-            label="Inteligência Artificial"
-            icon={Sparkles}
-            active={activeSection.id === "ia"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("ia", undefined, "Inteligência Artificial", undefined, "Gestão & Operação")}
-          />
+          {/* Carrinhos Abandonados & IA ocultos temporariamente */}
           <SidebarItem
             id="produtos"
             label="Produtos"
@@ -203,54 +178,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               { id: "listar", label: "Listar produtos" },
               { id: "criar", label: "Criar produto" },
               { id: "categorias", label: "Categorias" },
-              { id: "marcas", label: "Marcas" },
               { id: "grades", label: "Grades" },
-              { id: "precos-segmentados", label: "Preços segmentados" },
-              { id: "avaliacoes", label: "Avaliações" },
-              { id: "importar", label: "Importar" },
-              { id: "precificacao-markup", label: "Precificação & Markup" },
-              { id: "lixeira", label: "Lixeira" },
             ]}
             onSelect={(id, subId) => {
               const subLabels: Record<string, string> = {
                 listar: "Listar produtos",
                 criar: "Criar produto",
                 categorias: "Categorias",
-                marcas: "Marcas",
                 grades: "Grades",
-                "precos-segmentados": "Preços segmentados",
-                avaliacoes: "Avaliações",
-                importar: "Importar",
-                "precificacao-markup": "Precificação & Markup",
-                lixeira: "Lixeira",
               };
               onSelectSection(id, subId, "Produtos", subId ? subLabels[subId] : undefined, "Gestão & Operação");
             }}
           />
-          <SidebarItem
-            id="financeiro"
-            label="Financeiro"
-            icon={DollarSign}
-            active={activeSection.id === "financeiro"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("financeiro", undefined, "Financeiro", undefined, "Gestão & Operação")}
-          />
-          <SidebarItem
-            id="fiscal"
-            label="Fiscal & NF-e"
-            icon={Receipt}
-            active={activeSection.id === "fiscal"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("fiscal", undefined, "Fiscal & NF-e", undefined, "Gestão & Operação")}
-          />
-          <SidebarItem
-            id="descontos"
-            label="Descontos"
-            icon={Percent}
-            active={activeSection.id === "descontos"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("descontos", undefined, "Descontos", undefined, "Gestão & Operação")}
-          />
+          {/* Financeiro, Fiscal e Descontos ocultos temporariamente */}
         </SidebarGroup>
 
         {/* GRUPO 3: Cadastro */}
@@ -273,117 +213,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </SidebarGroup>
 
-        {/* GRUPO 4: Marketing */}
-        <SidebarGroup label="Marketing" isCollapsed={isCollapsed}>
-          <SidebarItem
-            id="promocoes"
-            label="Promoções"
-            icon={Tag}
-            active={activeSection.id === "promocoes"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("promocoes", undefined, "Promoções", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="brinde"
-            label="Brinde"
-            icon={Gift}
-            active={activeSection.id === "brinde"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("brinde", undefined, "Brinde", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="cupons"
-            label="Cupons"
-            icon={Ticket}
-            active={activeSection.id === "cupons"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("cupons", undefined, "Cupons", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="compre-junto"
-            label="Compre junto"
-            icon={Layers}
-            active={activeSection.id === "compre-junto"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("compre-junto", undefined, "Compre junto", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="frete-gratis"
-            label="Frete grátis"
-            icon={Truck}
-            active={activeSection.id === "frete-gratis"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("frete-gratis", undefined, "Frete grátis", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="newsletter"
-            label="Newsletter"
-            icon={Mail}
-            active={activeSection.id === "newsletter"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("newsletter", undefined, "Newsletter", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="avise-me"
-            label="Avise-me"
-            icon={BellRing}
-            active={activeSection.id === "avise-me"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("avise-me", undefined, "Avise-me", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="automacoes"
-            label="Automações"
-            icon={Zap}
-            active={activeSection.id === "automacoes"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("automacoes", undefined, "Automações", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="pixels-tags"
-            label="Pixels & Tags"
-            icon={Code2}
-            active={activeSection.id === "pixels-tags"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("pixels-tags", undefined, "Pixels & Tags", undefined, "Marketing")}
-          />
-          <SidebarItem
-            id="seo"
-            label="SEO"
-            icon={Globe}
-            active={activeSection.id === "seo"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("seo", undefined, "SEO", undefined, "Marketing")}
-          />
-        </SidebarGroup>
-
-        {/* GRUPO 4: Relacionamento */}
-        <SidebarGroup label="Relacionamento" isCollapsed={isCollapsed}>
-          <SidebarItem
-            id="indicacoes"
-            label="Indicações"
-            icon={Share2}
-            active={activeSection.id === "indicacoes"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("indicacoes", undefined, "Indicações", undefined, "Relacionamento")}
-          />
-          <SidebarItem
-            id="ugc"
-            label="UGC / Prova Social"
-            icon={Camera}
-            active={activeSection.id === "ugc"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("ugc", undefined, "UGC / Prova Social", undefined, "Relacionamento")}
-          />
-          <SidebarItem
-            id="ocasioes"
-            label="Ocasiões"
-            icon={CalendarHeart}
-            active={activeSection.id === "ocasioes"}
-            isCollapsed={isCollapsed}
-            onSelect={() => onSelectSection("ocasioes", undefined, "Ocasiões", undefined, "Relacionamento")}
-          />
-        </SidebarGroup>
+        {/* Marketing e Relacionamento ocultos temporariamente conforme faxina de menu */}
 
         {/* GRUPO 5: Loja */}
         <SidebarGroup label="Loja" isCollapsed={isCollapsed}>

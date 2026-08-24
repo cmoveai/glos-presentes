@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { PRODUCTS } from "../data/products";
 import { CATEGORIES } from "../data/categories";
 import { OCCASIONS } from "../data/occasions";
-import { Product, ProductCategory, ProductOccasion } from "../types";
+import { Product, ProductCategory, ProductOccasion, CategoryInfo } from "../types";
+import { fetchCategories } from "../lib/firebase";
 import { ProductCard } from "../components/common/ProductCard";
 import {
   SlidersHorizontal,
@@ -47,6 +48,21 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     initialTag === "mais-vendidos" ? "bestseller" : initialCategory === "novidades" ? "newest" : "relevance"
   );
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [categoriesList, setCategoriesList] = useState<CategoryInfo[]>(CATEGORIES);
+
+  useEffect(() => {
+    fetchCategories()
+      .then((cats) => {
+        if (cats && cats.length > 0) setCategoriesList(cats);
+      })
+      .catch((e) => console.warn("CatalogPage categories fetch warning:", e));
+  }, []);
+
+  const activeCategories = useMemo(() => {
+    return categoriesList
+      .filter((c) => c.ativo !== false)
+      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  }, [categoriesList]);
 
   // Filter logic
   const filteredProducts = useMemo(() => {
@@ -288,7 +304,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                       <span className="text-[11px] opacity-70">{PRODUCTS.length}</span>
                     </button>
                   </li>
-                  {CATEGORIES.map((cat) => (
+                  {activeCategories.map((cat) => (
                     <li key={cat.id}>
                       <button
                         onClick={() => setSelectedCategory(cat.id)}
@@ -298,8 +314,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                             : "text-stone-700 hover:bg-stone-100"
                         }`}
                       >
-                        <span>{cat.name}</span>
-                        <span className="text-[11px] opacity-70">{cat.itemCount}</span>
+                        <span>{cat.nome || cat.name || cat.id}</span>
+                        {cat.itemCount ? (
+                          <span className="text-[11px] opacity-70">{cat.itemCount}</span>
+                        ) : null}
                       </button>
                     </li>
                   ))}
@@ -464,9 +482,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   className="w-full text-xs p-2.5 rounded-xl border border-stone-300"
                 >
                   <option value="all">Todas as categorias</option>
-                  {CATEGORIES.map((cat) => (
+                  {activeCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.name}
+                      {cat.nome || cat.name || cat.id}
                     </option>
                   ))}
                 </select>
