@@ -34,6 +34,14 @@ import { PricingCalculator } from "./PricingCalculator";
 import { generateProductDraft } from "../../services/productService";
 import { fetchSuppliers, DEFAULT_SUPPLIER_FABRICACAO_PROPRIA } from "../../lib/firebase";
 
+export const FIXED_VARIATION_COLORS = [
+  { name: "Branca", hex: "#FFFFFF" },
+  { name: "Preta", hex: "#1A1A1A" },
+  { name: "Vermelha", hex: "#DC2626" },
+  { name: "Azul", hex: "#2563EB" },
+  { name: "Amarela", hex: "#FACC15" },
+] as const;
+
 interface ProductFormProps {
   product?: Product | null;
   categories: CategoryInfo[];
@@ -119,15 +127,29 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   );
   const [variacoes, setVariacoes] = useState<ProductVariationItem[]>(() => {
     if (product?.variacoes && product.variacoes.length > 0) {
-      return product.variacoes;
+      return product.variacoes.map((v) => {
+        const match = FIXED_VARIATION_COLORS.find(
+          (c) => c.name.toLowerCase() === v.valor?.toLowerCase()
+        );
+        return {
+          ...v,
+          corHex: v.corHex || match?.hex,
+        };
+      });
     }
     if (product?.variants && product.variants.length > 0) {
-      return product.variants.map((v) => ({
-        valor: v.name,
-        preco: (product.price || 149.9) + (v.priceModifier || 0),
-        estoque: v.stock ?? 20,
-        sku: v.sku,
-      }));
+      return product.variants.map((v) => {
+        const match = FIXED_VARIATION_COLORS.find(
+          (c) => c.name.toLowerCase() === v.name?.toLowerCase()
+        );
+        return {
+          valor: v.name,
+          corHex: v.colorHex || match?.hex,
+          preco: (product.price || 149.9) + (v.priceModifier || 0),
+          estoque: v.stock ?? 20,
+          sku: v.sku,
+        };
+      });
     }
     return [];
   });
@@ -135,9 +157,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const handleToggleVariacoes = (checked: boolean) => {
     setTemVariacoes(checked);
     if (checked && variacoes.length === 0) {
+      const isCor = atributoVariacao.trim().toLowerCase() === "cor";
       setVariacoes([
         {
-          valor: "",
+          valor: isCor ? FIXED_VARIATION_COLORS[0].name : "",
+          corHex: isCor ? FIXED_VARIATION_COLORS[0].hex : undefined,
           preco: price || 0,
           precoPromocional: promotionalPrice,
           estoque: stock || 10,
@@ -148,10 +172,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const handleAddVariation = () => {
+    const isCor = atributoVariacao.trim().toLowerCase() === "cor";
+    const usedColors = new Set(variacoes.map((v) => v.valor));
+    const nextColor = isCor
+      ? FIXED_VARIATION_COLORS.find((c) => !usedColors.has(c.name))
+      : undefined;
+
     setVariacoes([
       ...variacoes,
       {
-        valor: "",
+        valor: nextColor ? nextColor.name : "",
+        corHex: nextColor ? nextColor.hex : undefined,
         preco: price || 0,
         precoPromocional: promotionalPrice,
         estoque: 10,
@@ -345,25 +376,43 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       variacoes: temVariacoes
         ? variacoes
             .filter((v) => v.valor.trim().length > 0)
-            .map((v) => ({
-              valor: v.valor.trim(),
-              preco: Number(v.preco) || price || 0,
-              precoPromocional: v.precoPromocional ? Number(v.precoPromocional) : undefined,
-              estoque: v.estoque !== undefined && v.estoque !== null ? Number(v.estoque) : undefined,
-              sku: v.sku?.trim() || undefined,
-            }))
+            .map((v) => {
+              const isCor = atributoVariacao.trim().toLowerCase() === "cor";
+              const matchedColor = isCor
+                ? FIXED_VARIATION_COLORS.find(
+                    (c) => c.name.toLowerCase() === v.valor.trim().toLowerCase()
+                  )
+                : undefined;
+              return {
+                valor: v.valor.trim(),
+                corHex: v.corHex || matchedColor?.hex || undefined,
+                preco: Number(v.preco) || price || 0,
+                precoPromocional: v.precoPromocional ? Number(v.precoPromocional) : undefined,
+                estoque: v.estoque !== undefined && v.estoque !== null ? Number(v.estoque) : undefined,
+                sku: v.sku?.trim() || undefined,
+              };
+            })
         : [],
       variants:
         temVariacoes && variacoes.filter((v) => v.valor.trim().length > 0).length > 0
           ? variacoes
               .filter((v) => v.valor.trim().length > 0)
-              .map((v, idx) => ({
-                id: `var-${idx}-${v.valor.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-                name: v.valor.trim(),
-                priceModifier: Number(v.preco) ? Math.max(0, Number(v.preco) - price) : 0,
-                stock: v.estoque !== undefined ? Number(v.estoque) : undefined,
-                sku: v.sku?.trim() || undefined,
-              }))
+              .map((v, idx) => {
+                const isCor = atributoVariacao.trim().toLowerCase() === "cor";
+                const matchedColor = isCor
+                  ? FIXED_VARIATION_COLORS.find(
+                      (c) => c.name.toLowerCase() === v.valor.trim().toLowerCase()
+                    )
+                  : undefined;
+                return {
+                  id: `var-${idx}-${v.valor.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                  name: v.valor.trim(),
+                  colorHex: v.corHex || matchedColor?.hex || undefined,
+                  priceModifier: Number(v.preco) ? Math.max(0, Number(v.preco) - price) : 0,
+                  stock: v.estoque !== undefined ? Number(v.estoque) : undefined,
+                  sku: v.sku?.trim() || undefined,
+                };
+              })
           : undefined,
       images,
       videoUrl: videoUrl || undefined,
@@ -1016,20 +1065,61 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                           <tr key={idx} className="bg-[#F4F3EF] hover:bg-[#EEEDE8] transition-colors">
                             {/* Valor da variação */}
                             <td className="py-2 px-3">
-                              <input
-                                type="text"
-                                required
-                                value={item.valor}
-                                onChange={(e) => handleUpdateVariation(idx, "valor", e.target.value)}
-                                placeholder={
-                                  atributoVariacao === "Cor"
-                                    ? "Ex: Preta, Branca, Rosa..."
-                                    : atributoVariacao === "Tamanho"
-                                    ? "Ex: P, M, G, GG..."
-                                    : "Ex: Opção " + (idx + 1)
-                                }
-                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] font-medium focus:outline-none focus:border-[#004AAD]"
-                              />
+                              {atributoVariacao.trim().toLowerCase() === "cor" ? (
+                                <div className="flex items-center gap-2">
+                                  {/* Amostra da cor selecionada */}
+                                  <span
+                                    className={`w-4 h-4 rounded-full shrink-0 border transition-colors ${
+                                      (item.corHex || "").toUpperCase() === "#FFFFFF" ||
+                                      (!item.corHex && item.valor === "Branca")
+                                        ? "border-[#D6D3CC]"
+                                        : "border-transparent"
+                                    }`}
+                                    style={{
+                                      backgroundColor:
+                                        item.corHex ||
+                                        FIXED_VARIATION_COLORS.find(
+                                          (c) => c.name.toLowerCase() === item.valor?.toLowerCase()
+                                        )?.hex ||
+                                        "#E4E2DD",
+                                    }}
+                                    title={item.valor ? `Amostra: ${item.valor}` : "Selecione uma cor"}
+                                  />
+                                  <select
+                                    required
+                                    value={item.valor}
+                                    onChange={(e) => {
+                                      const selectedColorName = e.target.value;
+                                      const found = FIXED_VARIATION_COLORS.find(
+                                        (c) => c.name === selectedColorName
+                                      );
+                                      handleUpdateVariation(idx, "valor", selectedColorName);
+                                      handleUpdateVariation(idx, "corHex", found?.hex || undefined);
+                                    }}
+                                    className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] font-medium focus:outline-none focus:border-[#004AAD] cursor-pointer"
+                                  >
+                                    <option value="">Selecione uma cor...</option>
+                                    {FIXED_VARIATION_COLORS.map((color) => (
+                                      <option key={color.name} value={color.name}>
+                                        {color.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  required
+                                  value={item.valor}
+                                  onChange={(e) => handleUpdateVariation(idx, "valor", e.target.value)}
+                                  placeholder={
+                                    atributoVariacao === "Tamanho"
+                                      ? "Ex: P, M, G, GG..."
+                                      : "Ex: Opção " + (idx + 1)
+                                  }
+                                  className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] font-medium focus:outline-none focus:border-[#004AAD]"
+                                />
+                              )}
                             </td>
 
                             {/* Preço de venda */}

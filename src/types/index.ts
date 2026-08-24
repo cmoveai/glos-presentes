@@ -60,6 +60,7 @@ export interface CustomizationOptions {
 
 export interface ProductVariationItem {
   valor: string; // Ex: "Preta", "325ml", "P"
+  corHex?: string; // Hex da cor quando o atributo for "Cor" (ex: "#2563EB")
   preco: number; // Obrigatório, default = preço base do produto
   precoPromocional?: number; // Opcional
   estoque?: number; // Opcional

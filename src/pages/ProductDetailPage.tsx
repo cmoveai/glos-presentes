@@ -41,6 +41,19 @@ interface ProductDetailPageProps {
   onQuickView: (product: Product) => void;
 }
 
+const FIXED_COLOR_HEX_MAP: Record<string, string> = {
+  Branca: "#FFFFFF",
+  Preta: "#1A1A1A",
+  Vermelha: "#DC2626",
+  Azul: "#2563EB",
+  Amarela: "#FACC15",
+  branca: "#FFFFFF",
+  preta: "#1A1A1A",
+  vermelha: "#DC2626",
+  azul: "#2563EB",
+  amarela: "#FACC15",
+};
+
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   slug,
   onNavigateProduct,
@@ -552,21 +565,36 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {product.variacoes.map((item, idx) => {
                     const isSelected = selectedVariationItem?.valor === item.valor;
                     const displayPrice = item.precoPromocional ?? item.preco;
+                    const isCorAttr = (product.atributoVariacao || "").trim().toLowerCase() === "cor";
+                    const colorHex = item.corHex || (isCorAttr ? FIXED_COLOR_HEX_MAP[item.valor] : undefined);
+
                     return (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setSelectedVariationItem(item)}
-                        className={`px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-all text-left flex flex-col gap-0.5 ${
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-all text-left flex items-center gap-2.5 ${
                           isSelected
                             ? "border-[#004AAD] bg-[#004AAD]/5 text-[#004AAD] ring-1 ring-[#004AAD]"
                             : "border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800"
                         }`}
                       >
-                        <span className="font-medium">{item.valor}</span>
-                        <span className="text-[11px] text-stone-600 font-mono">
-                          R$ {displayPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </span>
+                        {colorHex && (
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                              colorHex.toUpperCase() === "#FFFFFF"
+                                ? "border border-stone-300 shadow-2xs"
+                                : "border border-black/10 shadow-2xs"
+                            }`}
+                            style={{ backgroundColor: colorHex }}
+                          />
+                        )}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{item.valor}</span>
+                          <span className="text-[11px] text-stone-600 font-mono">
+                            R$ {displayPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
