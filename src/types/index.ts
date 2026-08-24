@@ -58,6 +58,14 @@ export interface CustomizationOptions {
   requirePhotoUpload?: boolean;
 }
 
+export interface ProductVariationItem {
+  valor: string; // Ex: "Preta", "325ml", "P"
+  preco: number; // Obrigatório, default = preço base do produto
+  precoPromocional?: number; // Opcional
+  estoque?: number; // Opcional
+  sku?: string; // Opcional
+}
+
 export interface LicensingInfo {
   licensor?: string;
   contractNumber?: string;
@@ -190,6 +198,9 @@ export interface Product {
   images: string[];
   videoUrl?: string;
   variants?: ProductVariant[];
+  temVariacoes?: boolean;
+  atributoVariacao?: string; // ex: "Cor", "Tamanho", "Capacidade", "Material"
+  variacoes?: ProductVariationItem[];
   stock: number;
   manageStock?: boolean;
   availability?: "pronta_entrega" | "sob_encomenda";

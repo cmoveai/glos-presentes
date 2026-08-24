@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { getProductBySlug, getRelatedProducts, PRODUCTS } from "../data/products";
-import { Product, ProductVariant, ShippingOption } from "../types";
+import { Product, ProductVariant, ProductVariationItem, ShippingOption } from "../types";
 import { ProductCard } from "../components/common/ProductCard";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
@@ -57,6 +57,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
+  const [selectedVariationItem, setSelectedVariationItem] = useState<ProductVariationItem | undefined>(undefined);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [customText, setCustomText] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
@@ -88,6 +89,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Set default variant & color when product loads
   useEffect(() => {
     if (product) {
+      if (product.temVariacoes && product.variacoes && product.variacoes.length > 0) {
+        setSelectedVariationItem(product.variacoes[0]);
+      } else {
+        setSelectedVariationItem(undefined);
+      }
+
       if (product.variants && product.variants.length > 0) {
         const initialVar = product.variants[0];
         setSelectedVariant(initialVar);
@@ -156,14 +163,25 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const isFav = isFavorite(product.id);
 
-  // Price calculations with variant modifier
+  // Price calculations with variant or Nuvemshop variation item
   const priceModifier = selectedVariant?.priceModifier || 0;
-  const basePrice = (product.promotionalPrice ?? product.price) + priceModifier;
-  const currentPrice = basePrice;
-  const originalPrice = product.price + priceModifier;
-  const hasDiscount = !!product.promotionalPrice && product.promotionalPrice < product.price;
+  const originalPrice = selectedVariationItem
+    ? selectedVariationItem.preco
+    : product.price + priceModifier;
+
+  const currentPrice = selectedVariationItem
+    ? (selectedVariationItem.precoPromocional ?? selectedVariationItem.preco)
+    : (product.promotionalPrice ?? product.price) + priceModifier;
+
+  const hasDiscount = selectedVariationItem
+    ? Boolean(
+        selectedVariationItem.precoPromocional &&
+          selectedVariationItem.precoPromocional < selectedVariationItem.preco
+      )
+    : Boolean(product.promotionalPrice && product.promotionalPrice < product.price);
+
   const discountPercentage = hasDiscount
-    ? Math.round(((product.price - (product.promotionalPrice || 0)) / product.price) * 100)
+    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
     : 0;
 
   const installmentCount = product.installments || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
@@ -171,7 +189,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   // Check if variants have varying prices
   const hasMultiplePriceVariants =
-    product.variants && product.variants.some((v) => (v.priceModifier || 0) > 0);
+    Boolean(product.temVariacoes && product.variacoes && product.variacoes.length > 1) ||
+    Boolean(product.variants && product.variants.some((v) => (v.priceModifier || 0) > 0));
 
   const relatedProducts = getRelatedProducts(product, 4);
 
@@ -200,21 +219,30 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const handleAddToCart = () => {
     // 1. Build canonical item object requested in COMANDO 7
+    const variacaoPayload = selectedVariationItem
+      ? {
+          id: `var-${selectedVariationItem.valor.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          nome: `${product.atributoVariacao || "Opção"}: ${selectedVariationItem.valor}`,
+          cor: selectedColor,
+          priceModifier: 0,
+        }
+      : selectedVariant
+      ? {
+          id: selectedVariant.id,
+          nome: selectedVariant.name,
+          cor: selectedVariant.colorHex || selectedColor,
+          priceModifier: selectedVariant.priceModifier || 0,
+        }
+      : null;
+
     const itemPayload = {
       productId: product.id,
       nome: product.name,
       precoUnitario: currentPrice,
       quantidade: quantity,
       natureza: productNature,
-      variacaoSelecionada: selectedVariant
-        ? {
-            id: selectedVariant.id,
-            nome: selectedVariant.name,
-            cor: selectedVariant.colorHex || selectedColor,
-            priceModifier: selectedVariant.priceModifier || 0,
-          }
-        : null,
-      cor: selectedColor || selectedVariant?.name || null,
+      variacaoSelecionada: variacaoPayload,
+      cor: selectedColor || selectedVariationItem?.valor || selectedVariant?.name || null,
       textoCurto: customText.trim() || null,
       requerArquivo: productNature === "personalizavel",
     };
@@ -225,18 +253,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     addToCart(product, quantity, selectedVariant, {
       wrap: false,
       message: customText.trim() ? `Texto gravado: "${customText.trim()}"` : undefined,
-      cor: selectedColor || selectedVariant?.name || null,
+      cor: selectedColor || selectedVariationItem?.valor || selectedVariant?.name || null,
       textoCurto: customText.trim() || null,
       natureza: productNature,
       precoUnitario: currentPrice,
-      variacaoSelecionada: selectedVariant
-        ? {
-            id: selectedVariant.id,
-            nome: selectedVariant.name,
-            cor: selectedVariant.colorHex || selectedColor,
-            priceModifier: selectedVariant.priceModifier || 0,
-          }
-        : null,
+      variacaoSelecionada: variacaoPayload,
       requerArquivo: productNature === "personalizavel",
     });
 
@@ -509,6 +530,49 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 sem juros no cartão
               </div>
             </div>
+
+            {/* SELETOR DE VARIAÇÕES (MODELO NUVEMSHOP: COR, TAMANHO, MODELO, ETC) */}
+            {product.temVariacoes && product.variacoes && product.variacoes.length > 0 && (
+              <div className="p-4 bg-white rounded-2xl border border-stone-200/90 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-900">
+                    {product.atributoVariacao || "Opção"}:{" "}
+                    <span className="font-bold text-[#004AAD]">{selectedVariationItem?.valor}</span>
+                  </label>
+                  {selectedVariationItem?.estoque !== undefined && (
+                    <span className="text-[11px] text-stone-500">
+                      {selectedVariationItem.estoque > 0
+                        ? `${selectedVariationItem.estoque} un. disponíveis`
+                        : "Esgotado no momento"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {product.variacoes.map((item, idx) => {
+                    const isSelected = selectedVariationItem?.valor === item.valor;
+                    const displayPrice = item.precoPromocional ?? item.preco;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedVariationItem(item)}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-all text-left flex flex-col gap-0.5 ${
+                          isSelected
+                            ? "border-[#004AAD] bg-[#004AAD]/5 text-[#004AAD] ring-1 ring-[#004AAD]"
+                            : "border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800"
+                        }`}
+                      >
+                        <span className="font-medium">{item.valor}</span>
+                        <span className="text-[11px] text-stone-600 font-mono">
+                          R$ {displayPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* SE PERSONALIZÁVEL: PAINEL DE PERSONALIZAÇÃO LEVE */}
             {productNature === "personalizavel" && (

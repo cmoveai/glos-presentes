@@ -16,6 +16,8 @@ import {
   Layers,
   FileText,
   Search,
+  Trash2,
+  Tag,
 } from "lucide-react";
 import {
   Product,
@@ -25,6 +27,7 @@ import {
   CustomizationOptions,
   LicensingInfo,
   Supplier,
+  ProductVariationItem,
 } from "../../types";
 import { Card } from "./Card";
 import { PricingCalculator } from "./PricingCalculator";
@@ -102,6 +105,79 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     product?.promotionalPrice
   );
   const [priceOnDemand, setPriceOnDemand] = useState(product?.priceOnDemand || false);
+
+  // 4.1) Variações por Produto (Modelo Nuvemshop)
+  const [temVariacoes, setTemVariacoes] = useState<boolean>(
+    Boolean(
+      product?.temVariacoes ||
+        (product?.variacoes && product.variacoes.length > 0) ||
+        (product?.variants && product.variants.length > 0)
+    )
+  );
+  const [atributoVariacao, setAtributoVariacao] = useState<string>(
+    product?.atributoVariacao || "Cor"
+  );
+  const [variacoes, setVariacoes] = useState<ProductVariationItem[]>(() => {
+    if (product?.variacoes && product.variacoes.length > 0) {
+      return product.variacoes;
+    }
+    if (product?.variants && product.variants.length > 0) {
+      return product.variants.map((v) => ({
+        valor: v.name,
+        preco: (product.price || 149.9) + (v.priceModifier || 0),
+        estoque: v.stock ?? 20,
+        sku: v.sku,
+      }));
+    }
+    return [];
+  });
+
+  const handleToggleVariacoes = (checked: boolean) => {
+    setTemVariacoes(checked);
+    if (checked && variacoes.length === 0) {
+      setVariacoes([
+        {
+          valor: "",
+          preco: price || 0,
+          precoPromocional: promotionalPrice,
+          estoque: stock || 10,
+          sku: sku ? `${sku}-1` : "",
+        },
+      ]);
+    }
+  };
+
+  const handleAddVariation = () => {
+    setVariacoes([
+      ...variacoes,
+      {
+        valor: "",
+        preco: price || 0,
+        precoPromocional: promotionalPrice,
+        estoque: 10,
+        sku: sku ? `${sku}-${variacoes.length + 1}` : "",
+      },
+    ]);
+  };
+
+  const handleRemoveVariation = (index: number) => {
+    setVariacoes(variacoes.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateVariation = (
+    index: number,
+    field: keyof ProductVariationItem,
+    value: any
+  ) => {
+    setVariacoes((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+      return updated;
+    });
+  };
 
   // 5) Embalagem (Frete)
   const [weightKg, setWeightKg] = useState<number>(product?.packaging?.weightKg || 0.85);
@@ -264,6 +340,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       promotionalPrice: promotionalPrice || undefined,
       costPrice,
       priceOnDemand,
+      temVariacoes,
+      atributoVariacao: temVariacoes ? (atributoVariacao.trim() || "Variação") : undefined,
+      variacoes: temVariacoes
+        ? variacoes
+            .filter((v) => v.valor.trim().length > 0)
+            .map((v) => ({
+              valor: v.valor.trim(),
+              preco: Number(v.preco) || price || 0,
+              precoPromocional: v.precoPromocional ? Number(v.precoPromocional) : undefined,
+              estoque: v.estoque !== undefined && v.estoque !== null ? Number(v.estoque) : undefined,
+              sku: v.sku?.trim() || undefined,
+            }))
+        : [],
+      variants:
+        temVariacoes && variacoes.filter((v) => v.valor.trim().length > 0).length > 0
+          ? variacoes
+              .filter((v) => v.valor.trim().length > 0)
+              .map((v, idx) => ({
+                id: `var-${idx}-${v.valor.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                name: v.valor.trim(),
+                priceModifier: Number(v.preco) ? Math.max(0, Number(v.preco) - price) : 0,
+                stock: v.estoque !== undefined ? Number(v.estoque) : undefined,
+                sku: v.sku?.trim() || undefined,
+              }))
+          : undefined,
       images,
       videoUrl: videoUrl || undefined,
       sku,
@@ -807,11 +908,247 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </Card>
 
-      {/* SEÇÃO 5: EMBALAGEM (FRETE) */}
+      {/* SEÇÃO 5: VARIAÇÕES DO PRODUTO (NUVEMSHOP MODEL) */}
+      <Card padding="md" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D6D3CC]">
+          <div>
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#004AAD]" />
+              <h3 className="text-sm font-medium text-[#272727]">
+                5. Variações do Produto
+              </h3>
+            </div>
+            <p className="text-[11px] text-[#6B6A64] mt-0.5">
+              Crie opções com preços e estoques próprios (ex: cores, tamanhos, modelos). Convivência natural com personalização.
+            </p>
+          </div>
+
+          <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] cursor-pointer hover:bg-[#E4E2DD] transition-colors self-start sm:self-auto">
+            <input
+              type="checkbox"
+              checked={temVariacoes}
+              onChange={(e) => handleToggleVariacoes(e.target.checked)}
+              className="rounded text-[#004AAD] focus:ring-[#004AAD]"
+            />
+            <span className="text-xs font-medium text-[#272727]">
+              Este produto tem variações
+            </span>
+          </label>
+        </div>
+
+        {temVariacoes ? (
+          <div className="space-y-4 pt-1">
+            {/* Escolha ou definição do atributo da variação */}
+            <div className="p-3.5 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-[11px] font-medium text-[#272727] uppercase tracking-wider block">
+                  Propriedade da Variação (Atributo)
+                </label>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-[#6B6A64] mr-1">Atalhos:</span>
+                  {["Cor", "Tamanho", "Capacidade", "Modelo", "Material"].map((attr) => (
+                    <button
+                      key={attr}
+                      type="button"
+                      onClick={() => setAtributoVariacao(attr)}
+                      className={`px-2 py-0.5 rounded-[4px] text-[11px] transition-colors border ${
+                        atributoVariacao === attr
+                          ? "bg-[#004AAD] text-white border-[#004AAD]"
+                          : "bg-[#F4F3EF] text-[#6B6A64] border-[#D6D3CC] hover:text-[#272727]"
+                      }`}
+                    >
+                      {attr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <input
+                type="text"
+                value={atributoVariacao}
+                onChange={(e) => setAtributoVariacao(e.target.value)}
+                placeholder="Ex: Cor, Tamanho, Capacidade, Modelo..."
+                className="w-full sm:max-w-md px-3 py-1.5 text-xs bg-[#F4F3EF] border border-[#D6D3CC] rounded-[6px] text-[#272727] focus:outline-none focus:border-[#004AAD]"
+              />
+            </div>
+
+            {/* Tabela de Variações com Preços e Estoques Próprios */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-[#272727] uppercase tracking-wider">
+                  Opções cadastradas ({variacoes.length})
+                </span>
+                <span className="text-[11px] text-[#6B6A64]">
+                  Preço padrão do produto: R$ {price.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+
+              {variacoes.length === 0 ? (
+                <div className="p-6 text-center rounded-[6px] bg-[#EEEDE8] border border-dashed border-[#D6D3CC]">
+                  <p className="text-xs text-[#6B6A64] mb-3">
+                    Nenhuma opção cadastrada ainda. Clique no botão abaixo para adicionar a primeira opção.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddVariation}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#004AAD] text-white text-xs font-medium hover:bg-[#003884] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Opção de {atributoVariacao || "Variação"}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#D6D3CC] bg-[#EEEDE8] text-[10px] text-[#6B6A64] uppercase tracking-wider">
+                          <th className="py-2.5 px-3 font-normal">Valor / Opção ({atributoVariacao}) *</th>
+                          <th className="py-2.5 px-3 font-normal w-32">Preço (R$) *</th>
+                          <th className="py-2.5 px-3 font-normal w-32">Promocional (R$)</th>
+                          <th className="py-2.5 px-3 font-normal w-24">Estoque</th>
+                          <th className="py-2.5 px-3 font-normal w-32">SKU Variação</th>
+                          <th className="py-2.5 px-2 font-normal w-10 text-center">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#D6D3CC]">
+                        {variacoes.map((item, idx) => (
+                          <tr key={idx} className="bg-[#F4F3EF] hover:bg-[#EEEDE8] transition-colors">
+                            {/* Valor da variação */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                required
+                                value={item.valor}
+                                onChange={(e) => handleUpdateVariation(idx, "valor", e.target.value)}
+                                placeholder={
+                                  atributoVariacao === "Cor"
+                                    ? "Ex: Preta, Branca, Rosa..."
+                                    : atributoVariacao === "Tamanho"
+                                    ? "Ex: P, M, G, GG..."
+                                    : "Ex: Opção " + (idx + 1)
+                                }
+                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] font-medium focus:outline-none focus:border-[#004AAD]"
+                              />
+                            </td>
+
+                            {/* Preço de venda */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                required
+                                value={item.preco}
+                                onChange={(e) =>
+                                  handleUpdateVariation(idx, "preco", parseFloat(e.target.value) || 0)
+                                }
+                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] font-medium tabular-nums focus:outline-none focus:border-[#004AAD]"
+                              />
+                            </td>
+
+                            {/* Preço promocional */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.precoPromocional || ""}
+                                onChange={(e) =>
+                                  handleUpdateVariation(
+                                    idx,
+                                    "precoPromocional",
+                                    e.target.value ? parseFloat(e.target.value) : undefined
+                                  )
+                                }
+                                placeholder="Opcional"
+                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] tabular-nums focus:outline-none focus:border-[#004AAD]"
+                              />
+                            </td>
+
+                            {/* Estoque */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                value={item.estoque !== undefined ? item.estoque : ""}
+                                onChange={(e) =>
+                                  handleUpdateVariation(
+                                    idx,
+                                    "estoque",
+                                    e.target.value !== "" ? parseInt(e.target.value) : undefined
+                                  )
+                                }
+                                placeholder="20"
+                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-xs text-[#272727] tabular-nums focus:outline-none focus:border-[#004AAD]"
+                              />
+                            </td>
+
+                            {/* SKU */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="text"
+                                value={item.sku || ""}
+                                onChange={(e) => handleUpdateVariation(idx, "sku", e.target.value)}
+                                placeholder={`${sku || "GLOS"}-${idx + 1}`}
+                                className="w-full px-2.5 py-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[4px] text-[11px] font-mono text-[#6B6A64] focus:outline-none focus:border-[#004AAD]"
+                              />
+                            </td>
+
+                            {/* Remover */}
+                            <td className="py-2 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVariation(idx)}
+                                className="p-1.5 text-[#6B6A64] hover:text-[#9B2C2C] rounded-[4px] hover:bg-[#E4E2DD] transition-colors"
+                                title="Remover variação"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddVariation}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#EEEDE8] hover:bg-[#E4E2DD] border border-[#D6D3CC] text-xs font-medium text-[#272727] transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#004AAD]" />
+                      <span>Adicionar outra opção de {atributoVariacao || "variação"}</span>
+                    </button>
+                    <span className="text-[11px] text-[#6B6A64]">
+                      {variacoes.length} {variacoes.length === 1 ? "opção ativa" : "opções ativas"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] flex items-start gap-2 text-xs text-[#6B6A64]">
+              <CheckCircle2 className="w-4 h-4 text-[#0F7A4F] shrink-0 mt-0.5" />
+              <span>
+                <strong>Como funciona no catálogo:</strong> Na página do produto, o cliente selecionará a opção desejada (ex: {atributoVariacao}) e o preço será atualizado instantaneamente para o valor daquela variação.
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] text-xs text-[#6B6A64]">
+            Este produto é comercializado com preço único e estoque padrão (sem opções de variação).
+          </div>
+        )}
+      </Card>
+
+      {/* SEÇÃO 6: EMBALAGEM (FRETE) */}
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            5. Embalagem & Cálculo de Frete
+            6. Embalagem & Cálculo de Frete
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
             Dimensões do pacote rígido com laço para cotação precisa nos Correios e transportadoras
@@ -877,11 +1214,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </Card>
 
-      {/* SEÇÃO 6: CÓDIGOS & ESTOQUE */}
+      {/* SEÇÃO 7: CÓDIGOS & ESTOQUE */}
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            6. Códigos, SKU & Controle de Estoque
+            7. Códigos, SKU & Controle de Estoque
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
             Identificação única, códigos de barras e regras de esgotamento
@@ -982,11 +1319,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </Card>
 
-      {/* SEÇÃO 7: INFORMAÇÕES FISCAIS */}
+      {/* SEÇÃO 8: INFORMAÇÕES FISCAIS */}
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            7. Informações Fiscais
+            8. Informações Fiscais
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
             Dados para emissão de Nota Fiscal Eletrônica (NF-e)
@@ -1025,11 +1362,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </Card>
 
-      {/* SEÇÃO 8: ORGANIZE NA LOJA */}
+      {/* SEÇÃO 9: ORGANIZE NA LOJA */}
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            8. Organize na Loja (Categoria, Marca, Fornecedor, Coleção)
+            9. Organize na Loja (Categoria, Marca, Fornecedor, Coleção)
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
             Estruture onde o produto aparece no catálogo da Glos e qual parceiro fornece o item
@@ -1103,11 +1440,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </Card>
 
-      {/* SEÇÃO 9: SEO COM PREVIEW GOOGLE */}
+      {/* SEÇÃO 10: SEO COM PREVIEW GOOGLE */}
       <Card padding="md" className="space-y-4">
         <div className="pb-3 border-b border-[#D6D3CC]">
           <h3 className="text-sm font-medium text-[#272727]">
-            9. Otimização para Buscadores (SEO)
+            10. Otimização para Buscadores (SEO)
           </h3>
           <p className="text-[11px] text-[#6B6A64]">
             Como seu produto de presente aparecerá nas pesquisas do Google

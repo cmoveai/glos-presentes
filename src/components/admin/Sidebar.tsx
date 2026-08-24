@@ -178,14 +178,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               { id: "listar", label: "Listar produtos" },
               { id: "criar", label: "Criar produto" },
               { id: "categorias", label: "Categorias" },
-              { id: "grades", label: "Grades" },
             ]}
             onSelect={(id, subId) => {
               const subLabels: Record<string, string> = {
                 listar: "Listar produtos",
                 criar: "Criar produto",
                 categorias: "Categorias",
-                grades: "Grades",
               };
               onSelectSection(id, subId, "Produtos", subId ? subLabels[subId] : undefined, "Gestão & Operação");
             }}

@@ -3,7 +3,6 @@ import { ProductList } from "./ProductList";
 import { ProductForm } from "./ProductForm";
 import { CategoryManager } from "./CategoryManager";
 import { BrandManager } from "./BrandManager";
-import { GradeManager } from "./GradeManager";
 import { SegmentedPricingManager } from "./SegmentedPricingManager";
 import { ProductReviewsManager } from "./ProductReviewsManager";
 import { ProductImportManager } from "./ProductImportManager";
@@ -15,7 +14,6 @@ import {
   Product,
   CategoryInfo,
   ProductBrand,
-  ProductGrade,
   SegmentedPriceRule,
   ProductReview,
   Supplier,
@@ -26,8 +24,6 @@ import {
   saveProductsToStorage,
   getBrandsFromStorage,
   saveBrandsToStorage,
-  getGradesFromStorage,
-  saveGradesToStorage,
   getSegmentedRulesFromStorage,
   saveSegmentedRulesToStorage,
   getReviewsFromStorage,
@@ -53,7 +49,6 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
 }) => {
   const [products, setProducts] = useState<Product[]>(() => getProductsFromStorage());
   const [brands, setBrands] = useState<ProductBrand[]>(() => getBrandsFromStorage());
-  const [grades, setGrades] = useState<ProductGrade[]>(() => getGradesFromStorage());
   const [categories, setCategories] = useState<CategoryInfo[]>(CATEGORIES);
   const [segmentedRules, setSegmentedRules] = useState<SegmentedPriceRule[]>(() =>
     getSegmentedRulesFromStorage()
@@ -175,22 +170,6 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
     saveBrandsToStorage(updated);
   };
 
-  // Handlers para Grades
-  const handleSaveGrade = (grade: ProductGrade) => {
-    const exists = grades.find((g) => g.id === grade.id);
-    const updated = exists
-      ? grades.map((g) => (g.id === grade.id ? grade : g))
-      : [...grades, grade];
-    setGrades(updated);
-    saveGradesToStorage(updated);
-  };
-
-  const handleDeleteGrade = (gradeId: string) => {
-    const updated = grades.filter((g) => g.id !== gradeId);
-    setGrades(updated);
-    saveGradesToStorage(updated);
-  };
-
   // Handlers para Preços Segmentados
   const handleSaveSegmentedRule = (rule: SegmentedPriceRule) => {
     const exists = segmentedRules.find((r) => r.id === rule.id);
@@ -234,8 +213,6 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
         return "Categorias";
       case "marcas":
         return "Marcas";
-      case "grades":
-        return "Grades";
       case "precos-segmentados":
         return "Preços Segmentados";
       case "avaliacoes":
@@ -291,12 +268,6 @@ export const ProductModule: React.FC<ProductModuleProps> = ({
           brands={brands}
           onSaveBrand={handleSaveBrand}
           onDeleteBrand={handleDeleteBrand}
-        />
-      ) : subSectionId === "grades" ? (
-        <GradeManager
-          grades={grades}
-          onSaveGrade={handleSaveGrade}
-          onDeleteGrade={handleDeleteGrade}
         />
       ) : subSectionId === "precos-segmentados" ? (
         <SegmentedPricingManager

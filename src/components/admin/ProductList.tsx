@@ -281,12 +281,19 @@ export const ProductList: React.FC<ProductListProps> = ({
 
                       {/* Nome / Categoria / Fornecedor */}
                       <td className="py-3 px-4 max-w-[260px]">
-                        <button
-                          onClick={() => onEditProduct(product)}
-                          className="font-medium text-[#272727] hover:text-[#004AAD] transition-colors text-left line-clamp-1 block"
-                        >
-                          {product.name}
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => onEditProduct(product)}
+                            className="font-medium text-[#272727] hover:text-[#004AAD] transition-colors text-left line-clamp-1"
+                          >
+                            {product.name}
+                          </button>
+                          {product.temVariacoes && product.variacoes && product.variacoes.length > 0 && (
+                            <span className="text-[10px] text-[#004AAD] bg-[#EEEDE8] px-1.5 py-0.2 rounded-[3px] border border-[#D6D3CC] shrink-0 font-medium">
+                              {product.variacoes.length} {product.variacoes.length === 1 ? "variação" : "variações"}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5 text-[11px] text-[#9B998F] truncate mt-0.5">
                           <span>{product.categoryName || product.category}</span>
                           <span>•</span>
