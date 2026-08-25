@@ -87,6 +87,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // Marketing Peças (Full Banners, Banners, Cards, Pop-ups)
+    match /marketing_pecas/{pecaId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }
 

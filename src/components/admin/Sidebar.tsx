@@ -211,7 +211,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </SidebarGroup>
 
-        {/* Marketing e Relacionamento ocultos temporariamente conforme faxina de menu */}
+        {/* GRUPO 4: Marketing */}
+        <SidebarGroup label="Marketing" isCollapsed={isCollapsed}>
+          <SidebarItem
+            id="marketing"
+            label="Marketing"
+            icon={Sparkles}
+            active={activeSection.id === "marketing"}
+            isCollapsed={isCollapsed}
+            onSelect={() => onSelectSection("marketing", undefined, "Marketing", undefined, "Marketing")}
+          />
+        </SidebarGroup>
 
         {/* GRUPO 5: Loja */}
         <SidebarGroup label="Loja" isCollapsed={isCollapsed}>

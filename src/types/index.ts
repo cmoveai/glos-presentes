@@ -753,6 +753,25 @@ export interface MarketingSettings {
   customBodyScript?: string;
 }
 
+export type MarketingPecaTipo = "full_banner" | "banner" | "card" | "popup";
+
+export interface MarketingPeca {
+  id: string;
+  tipo: MarketingPecaTipo;
+  imagemUrl: string;
+  titulo?: string;
+  linkDestino?: string;
+  ordem: number;
+  ativo: boolean;
+  dataInicio?: string;
+  dataFim?: string;
+  // Campos específicos do Pop-up
+  largura?: number;
+  altura?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type ActivePage =
   | { type: "home" }
   | { type: "catalog"; category?: ProductCategory; occasion?: ProductOccasion; tag?: string; search?: string }

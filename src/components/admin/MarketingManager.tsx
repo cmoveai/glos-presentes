@@ -1,471 +1,938 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  Activity,
-  Globe,
-  Tag,
-  Share2,
-  Code,
-  Save,
-  CheckCircle2,
-  RefreshCw,
+  Image as ImageIcon,
+  Layers,
+  LayoutGrid,
+  Maximize2,
+  Plus,
+  Trash2,
+  Edit3,
   ExternalLink,
-  ShieldCheck,
-  Zap,
+  Calendar,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  X,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Clock,
+  UploadCloud,
+  Loader2,
   HelpCircle,
-  BarChart3,
 } from "lucide-react";
-import { MarketingSettings } from "../../types";
-import { saveAdminMarketingSettings } from "../../services/api";
-import { applyMarketingAndTracking } from "../../services/marketing";
+import { MarketingPeca, MarketingPecaTipo } from "../../types";
+import {
+  fetchMarketingPecas,
+  saveMarketingPeca,
+  deleteMarketingPeca,
+  toggleMarketingPecaAtivo,
+  reorderMarketingPecas,
+  uploadMarketingPecaImage,
+  getPecaStatusInfo,
+} from "../../services/marketingPecasService";
+import { Card } from "./Card";
+import { PageHeader } from "./PageHeader";
 import { useToast } from "../../context/ToastContext";
 
-interface MarketingManagerProps {
-  settings: MarketingSettings;
-  onSettingsUpdated: (updated: MarketingSettings) => void;
-  activeSubTab?: "trackers" | "seo" | "scripts";
-  onSubTabChange?: (tab: "trackers" | "seo" | "scripts") => void;
+interface TabConfig {
+  tipo: MarketingPecaTipo;
+  label: string;
+  shortLabel: string;
+  description: string;
+  recommendedSize: string;
+  icon: React.ElementType;
 }
 
-export const MarketingManager: React.FC<MarketingManagerProps> = ({
-  settings,
-  onSettingsUpdated,
-  activeSubTab: propActiveSubTab,
-  onSubTabChange,
-}) => {
-  const { showToast } = useToast();
-  const [form, setForm] = useState<MarketingSettings>({ ...settings });
+const TABS: TabConfig[] = [
+  {
+    tipo: "full_banner",
+    label: "Full Banners",
+    shortLabel: "Full Banner",
+    description: "Banners principais de largura total exibidos no carrossel de topo da página inicial da loja.",
+    recommendedSize: "1920 × 600 px (3.2:1)",
+    icon: Layers,
+  },
+  {
+    tipo: "banner",
+    label: "Banners Secundários",
+    shortLabel: "Banner",
+    description: "Faixas visuais intermediárias distribuídas entre as vitrines de produtos da home.",
+    recommendedSize: "1200 × 400 px (3:1)",
+    icon: ImageIcon,
+  },
+  {
+    tipo: "card",
+    label: "Cards & Atalhos",
+    shortLabel: "Card",
+    description: "Blocos visuais compactos para destacar coleções temáticas, kits ou atalhos de navegação.",
+    recommendedSize: "600 × 600 px (1:1) ou 800 × 600 px (4:3)",
+    icon: LayoutGrid,
+  },
+  {
+    tipo: "popup",
+    label: "Pop-ups de Campanha",
+    shortLabel: "Pop-up",
+    description: "Janela sobreposta exibida para os clientes na loja (avisos comemorativos, campanhas e avisos especiais).",
+    recommendedSize: "600 × 500 px (ajustável)",
+    icon: Maximize2,
+  },
+];
+
+export const MarketingManager: React.FC = () => {
+  const { showToast, success, error, info } = useToast();
+  const [activeTab, setActiveTab] = useState<MarketingPecaTipo>("full_banner");
+  const [pecas, setPecas] = useState<MarketingPeca[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Modal de edição / criação
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPeca, setEditingPeca] = useState<MarketingPeca | null>(null);
+
+  // Estados do formulário
+  const [formTipo, setFormTipo] = useState<MarketingPecaTipo>("full_banner");
+  const [formTitulo, setFormTitulo] = useState("");
+  const [formLinkDestino, setFormLinkDestino] = useState("");
+  const [formImagemUrl, setFormImagemUrl] = useState("");
+  const [formOrdem, setFormOrdem] = useState<number>(1);
+  const [formAtivo, setFormAtivo] = useState(true);
+  const [formHasValidity, setFormHasValidity] = useState(false);
+  const [formDataInicio, setFormDataInicio] = useState("");
+  const [formDataFim, setFormDataFim] = useState("");
+  const [formLargura, setFormLargura] = useState<number | undefined>(600);
+  const [formAltura, setFormAltura] = useState<number | undefined>(500);
+
+  // Upload
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [localSubTab, setLocalSubTab] = useState<"trackers" | "seo" | "scripts">("trackers");
 
-  const activeSubTab = propActiveSubTab || localSubTab;
-  const setActiveSubTab = onSubTabChange || setLocalSubTab;
+  // Confirmação de exclusão
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Carrega as peças do Firestore
+  const loadPecas = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchMarketingPecas();
+      setPecas(data);
+    } catch (err) {
+      console.error("Erro ao carregar peças:", err);
+      error("Erro ao carregar peças visuais.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPecas();
+  }, []);
+
+  const currentTabConfig = TABS.find((t) => t.tipo === activeTab) || TABS[0];
+  const currentPecas = pecas
+    .filter((p) => p.tipo === activeTab)
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  // Abrir modal de criação
+  const handleOpenCreateModal = (tipo: MarketingPecaTipo) => {
+    setEditingPeca(null);
+    setFormTipo(tipo);
+    setFormTitulo("");
+    setFormLinkDestino("");
+    setFormImagemUrl("");
+    // Próxima ordem disponível dentro do tipo
+    const pecasDoTipo = pecas.filter((p) => p.tipo === tipo);
+    const nextOrder = pecasDoTipo.length > 0 ? Math.max(...pecasDoTipo.map((p) => p.ordem || 0)) + 1 : 1;
+    setFormOrdem(nextOrder);
+    setFormAtivo(true);
+    setFormHasValidity(false);
+    setFormDataInicio("");
+    setFormDataFim("");
+    setFormLargura(tipo === "popup" ? 600 : undefined);
+    setFormAltura(tipo === "popup" ? 500 : undefined);
+    setIsModalOpen(true);
+  };
+
+  // Abrir modal de edição
+  const handleOpenEditModal = (peca: MarketingPeca) => {
+    setEditingPeca(peca);
+    setFormTipo(peca.tipo);
+    setFormTitulo(peca.titulo || "");
+    setFormLinkDestino(peca.linkDestino || "");
+    setFormImagemUrl(peca.imagemUrl || "");
+    setFormOrdem(peca.ordem ?? 1);
+    setFormAtivo(peca.ativo !== false);
+    const hasVal = Boolean(peca.dataInicio || peca.dataFim);
+    setFormHasValidity(hasVal);
+    setFormDataInicio(peca.dataInicio ? peca.dataInicio.slice(0, 16) : "");
+    setFormDataFim(peca.dataFim ? peca.dataFim.slice(0, 16) : "");
+    setFormLargura(peca.largura);
+    setFormAltura(peca.altura);
+    setIsModalOpen(true);
+  };
+
+  // Upload de arquivo
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    // Validação básica de tipo
+    if (!file.type.startsWith("image/")) {
+      info("Selecione um arquivo de imagem válido (JPG, PNG, WebP, SVG).");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(10);
+    try {
+      const url = await uploadMarketingPecaImage(file, (p) => setUploadProgress(p));
+      setFormImagemUrl(url);
+      success("Imagem carregada com sucesso.");
+    } catch (err) {
+      console.error("Erro no upload da imagem:", err);
+      error("Falha ao subir imagem. Tente novamente.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Salvar peça
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formImagemUrl.trim()) {
+      info("Por favor, faça o upload da imagem da peça.");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const ok = await saveAdminMarketingSettings(form);
-      if (ok) {
-        onSettingsUpdated(form);
-        applyMarketingAndTracking(form);
-        showToast("Configurações de Marketing, SEO e Pixels salvas!", "success");
+      const payload: MarketingPeca = {
+        id: editingPeca ? editingPeca.id : `peca_${formTipo}_${Date.now()}`,
+        tipo: formTipo,
+        imagemUrl: formImagemUrl.trim(),
+        titulo: formTitulo.trim() || undefined,
+        linkDestino: formLinkDestino.trim() || undefined,
+        ordem: Number(formOrdem) || 1,
+        ativo: formAtivo,
+        dataInicio: formHasValidity && formDataInicio ? new Date(formDataInicio).toISOString() : undefined,
+        dataFim: formHasValidity && formDataFim ? new Date(formDataFim).toISOString() : undefined,
+        largura: formTipo === "popup" && formLargura ? Number(formLargura) : undefined,
+        altura: formTipo === "popup" && formAltura ? Number(formAltura) : undefined,
+        createdAt: editingPeca ? editingPeca.createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saveOk = await saveMarketingPeca(payload);
+      if (saveOk) {
+        success(editingPeca ? "Peça visual atualizada com sucesso!" : "Nova peça visual cadastrada!");
+        setIsModalOpen(false);
+        await loadPecas();
       } else {
-        showToast("Falha ao salvar no banco de dados.", "error");
+        error("Erro ao salvar peça visual.");
       }
-    } catch {
-      showToast("Erro ao gravar parâmetros.", "error");
+    } catch (err) {
+      console.error("Erro ao salvar:", err);
+      error("Erro ao processar dados da peça.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const getSectionHeaderInfo = () => {
-    switch (activeSubTab) {
-      case "trackers":
-        return {
-          title: "1. Pixels & Tags de Conversão",
-          subtitle: "Google Tag Manager, Google Analytics 4 (GA4), Google Ads e Meta Pixel (Facebook & Instagram).",
-          icon: <Zap className="w-5 h-5 text-amber-600" />,
-        };
-      case "seo":
-        return {
-          title: "2. SEO Global & Redes Sociais",
-          subtitle: "Metadados de busca no Google e prévias para compartilhamento no WhatsApp, Facebook e Instagram.",
-          icon: <Globe className="w-5 h-5 text-amber-600" />,
-        };
-      case "scripts":
-        return {
-          title: "3. Scripts Personalizados",
-          subtitle: "Injeção customizada no cabeçalho (<head>) e rodapé (<body>) para chats, Clarity e ferramentas externas.",
-          icon: <Code className="w-5 h-5 text-amber-600" />,
-        };
-      default:
-        return {
-          title: "Marketing, SEO & Pixels",
-          subtitle: "Gerencie tags de conversão e metadados da loja.",
-          icon: <Activity className="w-5 h-5 text-amber-600" />,
-        };
+  // Excluir peça
+  const handleDelete = async (id: string) => {
+    try {
+      const deleteOk = await deleteMarketingPeca(id);
+      if (deleteOk) {
+        success("Peça removida com sucesso.");
+        setDeletingId(null);
+        await loadPecas();
+      } else {
+        error("Erro ao excluir peça.");
+      }
+    } catch (err) {
+      console.error("Erro ao excluir:", err);
+      error("Falha ao excluir peça.");
     }
   };
 
-  const headerInfo = getSectionHeaderInfo();
+  // Toggle rápido ativo/inativo
+  const handleToggleAtivo = async (peca: MarketingPeca) => {
+    const nextState = !peca.ativo;
+    // Otimista
+    setPecas((prev) =>
+      prev.map((p) => (p.id === peca.id ? { ...p, ativo: nextState } : p))
+    );
+    try {
+      await toggleMarketingPecaAtivo(peca.id, nextState);
+      info(nextState ? "Peça ativada na loja." : "Peça desativada.");
+    } catch (err) {
+      console.error("Erro ao alternar status:", err);
+      error("Erro ao atualizar status.");
+      await loadPecas();
+    }
+  };
+
+  // Mover ordem para cima
+  const handleMoveUp = async (index: number) => {
+    if (index <= 0) return;
+    const items = [...currentPecas];
+    const temp = items[index];
+    items[index] = items[index - 1];
+    items[index - 1] = temp;
+
+    const idsInOrder = items.map((p) => p.id);
+    // Atualização otimista
+    setPecas((prev) => {
+      const others = prev.filter((p) => p.tipo !== activeTab);
+      const updated = items.map((item, idx) => ({ ...item, ordem: idx + 1 }));
+      return [...others, ...updated];
+    });
+
+    try {
+      await reorderMarketingPecas(activeTab, idsInOrder);
+      success("Ordem de exibição atualizada.");
+    } catch (err) {
+      console.error("Erro ao reordenar:", err);
+      await loadPecas();
+    }
+  };
+
+  // Mover ordem para baixo
+  const handleMoveDown = async (index: number) => {
+    if (index >= currentPecas.length - 1) return;
+    const items = [...currentPecas];
+    const temp = items[index];
+    items[index] = items[index + 1];
+    items[index + 1] = temp;
+
+    const idsInOrder = items.map((p) => p.id);
+    // Atualização otimista
+    setPecas((prev) => {
+      const others = prev.filter((p) => p.tipo !== activeTab);
+      const updated = items.map((item, idx) => ({ ...item, ordem: idx + 1 }));
+      return [...others, ...updated];
+    });
+
+    try {
+      await reorderMarketingPecas(activeTab, idsInOrder);
+      success("Ordem de exibição atualizada.");
+    } catch (err) {
+      console.error("Erro ao reordenar:", err);
+      await loadPecas();
+    }
+  };
+
+  // Formata data amigável
+  const formatFriendlyDate = (isoStr?: string) => {
+    if (!isoStr) return "";
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return isoStr;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center shrink-0">
-              {headerInfo.icon}
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-950 flex items-center gap-2">
-                <span>{headerInfo.title}</span>
-              </h2>
-              <p className="text-xs text-stone-500 mt-0.5 max-w-2xl">
-                {headerInfo.subtitle}
-              </p>
-            </div>
-          </div>
-
+      <PageHeader
+        title="Marketing · Peças Visuais da Loja"
+        subtitle="Gerenciador autoral de banners, cards e pop-ups. Crie, suba artes, defina destinos, ative e agende períodos sem depender de código."
+        breadcrumbs={[
+          { label: "Painel do Lojista" },
+          { label: "Marketing" },
+          { label: "Peças Visuais" },
+        ]}
+        actions={
           <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-5 py-2.5 bg-stone-950 hover:bg-stone-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-colors shrink-0"
+            onClick={() => handleOpenCreateModal(activeTab)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-[#004AAD] text-white text-xs font-medium hover:bg-[#003884] transition-colors shadow-2xs"
           >
-            {isSaving ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-            ) : (
-              <Save className="w-4 h-4 text-amber-400" />
-            )}
-            <span>Salvar Configurações</span>
+            <Plus className="w-4 h-4" />
+            <span>+ Nova Peça ({currentTabConfig.shortLabel})</span>
           </button>
-        </div>
+        }
+      />
+
+      {/* 4 Seções / Abas de Tipos de Peça */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#EEEDE8] border border-[#D6D3CC] rounded-[8px]">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isSelected = activeTab === tab.tipo;
+          const count = pecas.filter((p) => p.tipo === tab.tipo).length;
+          const activeCount = pecas.filter((p) => p.tipo === tab.tipo && p.ativo).length;
+
+          return (
+            <button
+              key={tab.tipo}
+              onClick={() => setActiveTab(tab.tipo)}
+              className={`flex-1 min-w-[160px] flex items-center justify-between px-3.5 py-2.5 rounded-[6px] text-xs font-medium transition-all ${
+                isSelected
+                  ? "bg-[#F4F3EF] text-[#004AAD] shadow-2xs border border-[#D6D3CC]"
+                  : "text-[#6B6A64] hover:text-[#272727] hover:bg-[#E4E2DD]/60 border border-transparent"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Icon className={`w-4 h-4 ${isSelected ? "text-[#004AAD]" : "text-[#6B6A64]"}`} />
+                <span className="whitespace-nowrap">{tab.label}</span>
+              </div>
+              <span
+                className={`text-[11px] px-2 py-0.5 rounded-full border tabular-nums font-normal ${
+                  isSelected
+                    ? "bg-[#004AAD]/10 text-[#004AAD] border-[#004AAD]/20"
+                    : "bg-[#E4E2DD] text-[#6B6A64] border-[#D6D3CC]"
+                }`}
+              >
+                {count > 0 ? `${activeCount}/${count}` : "0"}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* ========================================================================= */}
-        {/* TAB 1: TRACKERS (GTM, GA4, ADS, META) */}
-        {/* ========================================================================= */}
-        {activeSubTab === "trackers" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* GOOGLE TAG MANAGER */}
-            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                    GTM
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-900">Google Tag Manager</h3>
-                    <p className="text-[11px] text-stone-500">Contêiner para injeção centralizada de scripts</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.gtmEnabled || false}
-                    onChange={(e) => setForm({ ...form, gtmEnabled: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-950"></div>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  ID do Contêiner GTM (GTM-XXXXXXX)
-                </label>
-                <input
-                  type="text"
-                  placeholder="GTM-N9XXXXX"
-                  value={form.gtmId || ""}
-                  onChange={(e) => setForm({ ...form, gtmId: e.target.value.trim() })}
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-stone-50 rounded-xl text-[11px] text-stone-600 space-y-1">
-                <p className="font-semibold text-stone-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Disparos Automáticos DataLayer:</span>
-                </p>
-                <p className="text-stone-500">
-                  A loja dispara eventos <code className="text-stone-800 font-mono font-bold">view_item</code>, <code className="text-stone-800 font-mono font-bold">add_to_cart</code>, <code className="text-stone-800 font-mono font-bold">begin_checkout</code> e <code className="text-stone-800 font-mono font-bold">purchase</code> para o dataLayer.
-                </p>
-              </div>
-            </div>
-
-            {/* GOOGLE ANALYTICS 4 */}
-            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">
-                    GA4
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-900">Google Analytics 4</h3>
-                    <p className="text-[11px] text-stone-500">Métricas de tráfego, audiência e conversões</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.gaEnabled || false}
-                    onChange={(e) => setForm({ ...form, gaEnabled: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-950"></div>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  ID de Medição do GA4 (G-XXXXXXXXXX)
-                </label>
-                <input
-                  type="text"
-                  placeholder="G-ABC123XYZ"
-                  value={form.gaMeasurementId || ""}
-                  onChange={(e) => setForm({ ...form, gaMeasurementId: e.target.value.trim() })}
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-stone-50 rounded-xl text-[11px] text-stone-600 space-y-1">
-                <p className="text-stone-500">
-                  Encontrado no painel do Google Analytics em: <em>Administrador &gt; Fluxo de Dados &gt; ID da Métrica</em>.
-                </p>
-              </div>
-            </div>
-
-            {/* GOOGLE ADS */}
-            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                    ADS
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-900">Google Ads (Campanhas)</h3>
-                    <p className="text-[11px] text-stone-500">Acompanhamento de conversões e ROAS</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.googleAdsEnabled || false}
-                    onChange={(e) => setForm({ ...form, googleAdsEnabled: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-950"></div>
-                </label>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    ID da Conta Google Ads (AW-XXXXXXXXXX)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="AW-123456789"
-                    value={form.googleAdsId || ""}
-                    onChange={(e) => setForm({ ...form, googleAdsId: e.target.value.trim() })}
-                    className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:border-stone-950 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Rótulo de Conversão de Compra (Conversion Label)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: AbCdEfGhIjKlMnOpQrS"
-                    value={form.googleAdsConversionLabel || ""}
-                    onChange={(e) => setForm({ ...form, googleAdsConversionLabel: e.target.value.trim() })}
-                    className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:border-stone-950 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* META PIXEL (FACEBOOK & INSTAGRAM) */}
-            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                    META
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-stone-900">Meta Pixel (Facebook / Insta)</h3>
-                    <p className="text-[11px] text-stone-500">Rastreamento de público, retargeting e DPA</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.metaPixelEnabled || false}
-                    onChange={(e) => setForm({ ...form, metaPixelEnabled: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-950"></div>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  ID do Pixel da Meta (15 ou 16 dígitos)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: 987654321098765"
-                  value={form.metaPixelId || ""}
-                  onChange={(e) => setForm({ ...form, metaPixelId: e.target.value.trim() })}
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-stone-50 rounded-xl text-[11px] text-stone-600 space-y-1">
-                <p className="text-stone-500">
-                  Eventos padrão disparados: <code className="text-stone-800 font-mono font-bold">PageView</code>, <code className="text-stone-800 font-mono font-bold">ViewContent</code>, <code className="text-stone-800 font-mono font-bold">AddToCart</code>, <code className="text-stone-800 font-mono font-bold">InitiateCheckout</code> e <code className="text-stone-800 font-mono font-bold">Purchase</code>.
-                </p>
-              </div>
-            </div>
+      {/* Cartão de Informações e Orientação do Tipo Ativo */}
+      <Card padding="sm" className="bg-[#F4F3EF] border-[#D6D3CC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-start gap-2.5">
+          <div className="p-2 rounded-[6px] bg-[#EEEDE8] text-[#004AAD] shrink-0 mt-0.5">
+            <currentTabConfig.icon className="w-4 h-4" />
           </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 2: SEO & METADATA */}
-        {/* ========================================================================= */}
-        {activeSubTab === "seo" && (
-          <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-5">
-            <div>
-              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Globe className="w-4 h-4 text-amber-600" />
-                <span>Metadados Globais para Google (SEO) e Compartilhamento Social (OpenGraph)</span>
-              </h3>
-              <p className="text-xs text-stone-500">
-                Essas informações aparecem nos resultados de busca do Google e quando o link da loja é enviado no WhatsApp ou redes.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-stone-800 mb-1">
-                  Título Principal da Página (Tag Title & OG:Title) *
-                </label>
-                <input
-                  type="text"
-                  value={form.seoTitle || ""}
-                  onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
-                  placeholder="Ex: glos. | Presentes Criativos & Design Autoral"
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-stone-800 mb-1">
-                  Descrição nos Buscadores (Meta Description & OG:Description)
-                </label>
-                <textarea
-                  rows={3}
-                  value={form.seoDescription || ""}
-                  onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
-                  placeholder="Ex: Curadoria autoral de presentes criativos, utilidades para casa, café gourmet e kits especiais..."
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none"
-                />
-                <span className="text-[10px] text-stone-400 mt-1 block">
-                  Recomendado entre 140 e 160 caracteres para visualização perfeita no Google.
-                </span>
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-800 mb-1">
-                  Palavras-chave (Keywords separadas por vírgula)
-                </label>
-                <input
-                  type="text"
-                  value={form.seoKeywords || ""}
-                  onChange={(e) => setForm({ ...form, seoKeywords: e.target.value })}
-                  placeholder="Ex: presentes criativos, design, xicaras, kits gourmet"
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-800 mb-1">
-                  URL da Imagem de Compartilhamento (OG:Image 1200x630px)
-                </label>
-                <input
-                  type="text"
-                  value={form.ogImage || ""}
-                  onChange={(e) => setForm({ ...form, ogImage: e.target.value })}
-                  placeholder="https://sua-loja.com/og-image.jpg"
-                  className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:border-stone-950 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* LIVE PREVIEW OF GOOGLE SNIPPET */}
-            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-2">
-              <span className="text-xs font-bold text-stone-700 block">Prévia no Google Search:</span>
-              <div className="bg-white p-4 rounded-xl border border-stone-200 space-y-1">
-                <div className="text-[11px] text-stone-500 truncate">https://sua-loja.com.br</div>
-                <div className="text-sm font-semibold text-blue-800 hover:underline cursor-pointer">
-                  {form.seoTitle || "glos. | Presentes Criativos & Design Autoral"}
-                </div>
-                <div className="text-xs text-stone-600 line-clamp-2">
-                  {form.seoDescription || "Curadoria autoral de presentes criativos e kits especiais feitos para surpreender..."}
-                </div>
-              </div>
-            </div>
+          <div>
+            <p className="font-medium text-[#272727]">{currentTabConfig.description}</p>
+            <p className="text-[11px] text-[#6B6A64] mt-0.5">
+              Dimensão recomendada: <span className="font-medium text-[#272727]">{currentTabConfig.recommendedSize}</span>
+            </p>
           </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 3: CUSTOM SCRIPTS */}
-        {/* ========================================================================= */}
-        {activeSubTab === "scripts" && (
-          <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-5">
-            <div>
-              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Code className="w-4 h-4 text-amber-600" />
-                <span>Scripts Personalizados Adicionais (Header & Body)</span>
-              </h3>
-              <p className="text-xs text-stone-500">
-                Insira códigos extras para ferramentas como Hotjar, Clarity, Chat ao Vivo (Zendesk/JivoChat) ou TikTok Pixel.
-              </p>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-stone-800 mb-1">
-                  Scripts no Cabeçalho (&lt;head&gt;)
-                </label>
-                <textarea
-                  rows={4}
-                  value={form.customHeadScript || ""}
-                  onChange={(e) => setForm({ ...form, customHeadScript: e.target.value })}
-                  placeholder="<!-- Exemplo de script de verificação de domínio ou chat -->"
-                  className="w-full p-3 bg-stone-950 text-amber-400 font-mono text-xs border border-stone-800 rounded-xl focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-800 mb-1">
-                  Scripts no Rodapé (&lt;body&gt;)
-                </label>
-                <textarea
-                  rows={4}
-                  value={form.customBodyScript || ""}
-                  onChange={(e) => setForm({ ...form, customBodyScript: e.target.value })}
-                  placeholder="<!-- Scripts adicionais para o final do carregamento -->"
-                  className="w-full p-3 bg-stone-950 text-amber-400 font-mono text-xs border border-stone-800 rounded-xl focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FOOTER SAVE BAR */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-6 py-3 bg-stone-950 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
-          >
-            {isSaving ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-            ) : (
-              <Save className="w-4 h-4 text-amber-400" />
-            )}
-            <span>Salvar Todas as Configurações de Marketing</span>
-          </button>
         </div>
-      </form>
+        <button
+          onClick={() => handleOpenCreateModal(activeTab)}
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-[#D6D3CC] bg-[#EEEDE8] hover:bg-[#E4E2DD] text-[#272727] text-xs font-medium transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5 text-[#004AAD]" />
+          <span>Adicionar {currentTabConfig.shortLabel}</span>
+        </button>
+      </Card>
+
+      {/* Listagem de Peças ou Estado Vazio Honesto */}
+      {isLoading ? (
+        <Card padding="lg" className="text-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#004AAD] mb-2" />
+          <p className="text-xs text-[#6B6A64]">Carregando peças de marketing...</p>
+        </Card>
+      ) : currentPecas.length === 0 ? (
+        /* ESTADO VAZIO HONESTO: Nenhuma peça fictícia */
+        <Card padding="lg" className="border-dashed border-[#D6D3CC] text-center py-12 sm:py-16">
+          <div className="max-w-md mx-auto space-y-3">
+            <div className="w-12 h-12 rounded-[8px] bg-[#EEEDE8] text-[#004AAD] flex items-center justify-center mx-auto">
+              <currentTabConfig.icon className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-medium text-[#272727]">
+              Nenhum {currentTabConfig.shortLabel.toLowerCase()} cadastrado
+            </h3>
+            <p className="text-xs text-[#6B6A64] leading-relaxed">
+              Você ainda não subiu artes para esta seção. Ao cadastrar um {currentTabConfig.shortLabel.toLowerCase()}, você poderá definir imagem, link de destino, ordenação e período de validade.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => handleOpenCreateModal(activeTab)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-[#004AAD] text-white text-xs font-medium hover:bg-[#003884] transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Criar primeiro {currentTabConfig.shortLabel}</span>
+              </button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        /* Grid / Lista de Peças Cadastradas */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {currentPecas.map((peca, idx) => {
+            const statusInfo = getPecaStatusInfo(peca);
+            const hasDates = Boolean(peca.dataInicio || peca.dataFim);
+
+            return (
+              <Card
+                key={peca.id}
+                padding="none"
+                className="overflow-hidden flex flex-col bg-[#F4F3EF] border-[#D6D3CC] transition-all hover:border-[#004AAD]/40"
+              >
+                {/* Visual Preview da Imagem */}
+                <div
+                  className={`relative w-full bg-[#E4E2DD] border-b border-[#D6D3CC] overflow-hidden group ${
+                    peca.tipo === "full_banner"
+                      ? "aspect-[16/6]"
+                      : peca.tipo === "banner"
+                      ? "aspect-[16/7]"
+                      : peca.tipo === "card"
+                      ? "aspect-square max-h-56"
+                      : "aspect-[4/3] max-h-56"
+                  }`}
+                >
+                  <img
+                    src={peca.imagemUrl}
+                    alt={peca.titulo || "Peça visual"}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-102"
+                  />
+
+                  {/* Badges de Posição e Ordem */}
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded-[4px] bg-[#272727]/80 backdrop-blur-xs text-white text-[11px] font-normal tabular-nums">
+                      #{idx + 1}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-[4px] border text-[11px] font-medium backdrop-blur-xs ${statusInfo.badgeClass}`}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </div>
+
+                  {/* Pop-up Dimensões Badge */}
+                  {peca.tipo === "popup" && (peca.largura || peca.altura) && (
+                    <div className="absolute top-2.5 right-2.5">
+                      <span className="px-2 py-0.5 rounded-[4px] bg-[#272727]/80 backdrop-blur-xs text-white text-[11px] tabular-nums font-normal">
+                        {peca.largura || 600} × {peca.altura || 500} px
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Conteúdo e Informações */}
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-sm font-medium text-[#272727] line-clamp-1">
+                        {peca.titulo || <span className="text-[#9B998F] italic">Sem título definido</span>}
+                      </h4>
+                    </div>
+
+                    {/* Link de destino */}
+                    <div className="flex items-center gap-1.5 text-xs text-[#6B6A64]">
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[#9B998F]" />
+                      <span className="truncate" title={peca.linkDestino || "Nenhum link associado"}>
+                        {peca.linkDestino ? (
+                          <span className="text-[#004AAD] font-mono text-[11px]">{peca.linkDestino}</span>
+                        ) : (
+                          <span className="text-[#9B998F]">Sem link (apenas visual)</span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Período de Validade se houver */}
+                    {hasDates && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#6B6A64] pt-1">
+                        <Clock className="w-3 h-3 text-[#9B998F] shrink-0" />
+                        <span>
+                          {peca.dataInicio && peca.dataFim
+                            ? `${formatFriendlyDate(peca.dataInicio)} até ${formatFriendlyDate(peca.dataFim)}`
+                            : peca.dataInicio
+                            ? `A partir de ${formatFriendlyDate(peca.dataInicio)}`
+                            : `Até ${formatFriendlyDate(peca.dataFim)}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Controles de Ação e Reordenação */}
+                  <div className="pt-3 border-t border-[#D6D3CC] flex items-center justify-between gap-2">
+                    {/* Botões de Subir / Descer Ordem */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleMoveUp(idx)}
+                        disabled={idx === 0}
+                        title="Mover para cima"
+                        className="p-1.5 rounded-[4px] border border-[#D6D3CC] text-[#6B6A64] hover:text-[#272727] hover:bg-[#EEEDE8] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveDown(idx)}
+                        disabled={idx === currentPecas.length - 1}
+                        title="Mover para baixo"
+                        className="p-1.5 rounded-[4px] border border-[#D6D3CC] text-[#6B6A64] hover:text-[#272727] hover:bg-[#EEEDE8] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Ativar/Desativar + Editar + Excluir */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleToggleAtivo(peca)}
+                        className={`px-2.5 py-1.5 rounded-[6px] text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                          peca.ativo
+                            ? "border-[#0F7A4F]/30 bg-[#0F7A4F]/5 text-[#0F7A4F] hover:bg-[#0F7A4F]/10"
+                            : "border-[#D6D3CC] bg-[#EEEDE8] text-[#6B6A64] hover:text-[#272727]"
+                        }`}
+                        title={peca.ativo ? "Clique para desativar" : "Clique para ativar"}
+                      >
+                        {peca.ativo ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        <span>{peca.ativo ? "Ativo" : "Inativo"}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenEditModal(peca)}
+                        className="p-1.5 rounded-[6px] border border-[#D6D3CC] text-[#6B6A64] hover:text-[#272727] hover:bg-[#EEEDE8] transition-colors"
+                        title="Editar peça"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => setDeletingId(peca.id)}
+                        className="p-1.5 rounded-[6px] border border-[#D6D3CC] text-[#9B2C2C] hover:bg-[#9B2C2C]/5 transition-colors"
+                        title="Excluir peça"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de Criação / Edição de Peça */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs select-none">
+          <div className="bg-[#F4F3EF] border border-[#D6D3CC] rounded-[8px] max-w-xl w-full max-h-[90vh] overflow-y-auto flex flex-col shadow-lg">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[#D6D3CC] flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium text-[#272727]">
+                  {editingPeca ? `Editar ${currentTabConfig.shortLabel}` : `Novo ${currentTabConfig.shortLabel}`}
+                </h3>
+                <p className="text-xs text-[#6B6A64] mt-0.5">
+                  Preencha as informações visuais e regras de exibição na loja.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-[6px] text-[#6B6A64] hover:text-[#272727] hover:bg-[#EEEDE8]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body / Formulário */}
+            <form onSubmit={handleSave} className="p-6 space-y-5 flex-1">
+              {/* Seletor de Tipo (se quiser mudar) */}
+              <div>
+                <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                  Tipo de Peça
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {TABS.map((t) => (
+                    <button
+                      key={t.tipo}
+                      type="button"
+                      onClick={() => setFormTipo(t.tipo)}
+                      className={`px-3 py-2 rounded-[6px] text-xs font-medium border text-center transition-all ${
+                        formTipo === t.tipo
+                          ? "border-[#004AAD] bg-[#004AAD]/5 text-[#004AAD] ring-1 ring-[#004AAD]"
+                          : "border-[#D6D3CC] bg-[#EEEDE8] text-[#6B6A64] hover:text-[#272727]"
+                      }`}
+                    >
+                      {t.shortLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Upload de Imagem */}
+              <div>
+                <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                  Arte / Imagem da Peça <span className="text-[#9B2C2C]">*</span>
+                </label>
+
+                {formImagemUrl ? (
+                  <div className="relative border border-[#D6D3CC] rounded-[8px] overflow-hidden bg-[#E4E2DD] group">
+                    <img
+                      src={formImagemUrl}
+                      alt="Preview da peça"
+                      referrerPolicy="no-referrer"
+                      className="w-full max-h-48 object-cover object-center"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-[6px] bg-white text-[#272727] text-xs font-medium hover:bg-stone-100 flex items-center gap-1.5"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>Trocar Imagem</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormImagemUrl("")}
+                        className="px-3 py-1.5 rounded-[6px] bg-[#9B2C2C] text-white text-xs font-medium hover:bg-[#802222] flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remover</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-[#D6D3CC] hover:border-[#004AAD] rounded-[8px] p-6 text-center bg-[#EEEDE8] hover:bg-[#E4E2DD] transition-all cursor-pointer space-y-2"
+                  >
+                    <div className="w-10 h-10 rounded-[6px] bg-[#F4F3EF] text-[#004AAD] flex items-center justify-center mx-auto">
+                      {isUploading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <UploadCloud className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-[#272727]">
+                        {isUploading ? "Subindo imagem..." : "Clique para selecionar ou arraste o arquivo"}
+                      </p>
+                      <p className="text-[11px] text-[#6B6A64] mt-0.5">
+                        JPG, PNG, WebP ou SVG. Dimensão recomendada: {TABS.find((t) => t.tipo === formTipo)?.recommendedSize}
+                      </p>
+                    </div>
+
+                    {isUploading && (
+                      <div className="w-full bg-[#D6D3CC] h-1.5 rounded-full overflow-hidden mt-2">
+                        <div
+                          className="bg-[#004AAD] h-full transition-all duration-200"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Título da Peça (Opcional) */}
+              <div>
+                <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                  Título ou Rótulo Interno <span className="text-[#9B998F] font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formTitulo}
+                  onChange={(e) => setFormTitulo(e.target.value)}
+                  placeholder="Ex: Campanha Dia das Mães — Coleção Afeto"
+                  className="w-full px-3.5 py-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] text-xs focus:outline-hidden focus:border-[#004AAD] focus:bg-white"
+                />
+              </div>
+
+              {/* Link de Destino */}
+              <div>
+                <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                  Link de Destino / Redirecionamento <span className="text-[#9B998F] font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formLinkDestino}
+                  onChange={(e) => setFormLinkDestino(e.target.value)}
+                  placeholder="Ex: /catalogo?categoria=kits-presenteaveis ou https://..."
+                  className="w-full px-3.5 py-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] text-xs focus:outline-hidden focus:border-[#004AAD] focus:bg-white font-mono"
+                />
+                <p className="text-[11px] text-[#6B6A64] mt-1">
+                  Ao clicar na peça na loja, o cliente será direcionado para esta URL ou categoria.
+                </p>
+              </div>
+
+              {/* Ordem e Ativo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                    Ordem de Exibição
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formOrdem}
+                    onChange={(e) => setFormOrdem(parseInt(e.target.value) || 1)}
+                    className="w-full px-3.5 py-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] text-xs focus:outline-hidden focus:border-[#004AAD] focus:bg-white tabular-nums"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#272727] mb-1.5">
+                    Status na Loja
+                  </label>
+                  <label className="flex items-center gap-2.5 px-3.5 py-2 rounded-[6px] bg-[#EEEDE8] border border-[#D6D3CC] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formAtivo}
+                      onChange={(e) => setFormAtivo(e.target.checked)}
+                      className="w-4 h-4 text-[#004AAD] rounded-[4px] border-[#D6D3CC] focus:ring-0"
+                    />
+                    <span className="text-xs font-medium text-[#272727]">
+                      {formAtivo ? "Peça Ativa (visível na loja)" : "Peça Inativa (pausada)"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Campos Exclusivos de Pop-up (Medidas Largura / Altura) */}
+              {formTipo === "popup" && (
+                <div className="p-3.5 rounded-[8px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <Maximize2 className="w-3.5 h-3.5 text-[#004AAD]" />
+                    <span className="text-xs font-medium text-[#272727]">Medidas do Pop-up (px)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-[#6B6A64] mb-1">Largura (pixels)</label>
+                      <input
+                        type="number"
+                        min="200"
+                        max="1200"
+                        value={formLargura || 600}
+                        onChange={(e) => setFormLargura(parseInt(e.target.value) || 600)}
+                        className="w-full px-3 py-1.5 rounded-[6px] bg-[#F4F3EF] border border-[#D6D3CC] text-xs tabular-nums text-[#272727]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#6B6A64] mb-1">Altura (pixels)</label>
+                      <input
+                        type="number"
+                        min="200"
+                        max="1200"
+                        value={formAltura || 500}
+                        onChange={(e) => setFormAltura(parseInt(e.target.value) || 500)}
+                        className="w-full px-3 py-1.5 rounded-[6px] bg-[#F4F3EF] border border-[#D6D3CC] text-xs tabular-nums text-[#272727]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Agendamento de Validade */}
+              <div className="p-3.5 rounded-[8px] bg-[#EEEDE8] border border-[#D6D3CC] space-y-3">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-[#004AAD]" />
+                    <span className="text-xs font-medium text-[#272727]">Agendar período de validade</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formHasValidity}
+                    onChange={(e) => setFormHasValidity(e.target.checked)}
+                    className="w-4 h-4 text-[#004AAD] rounded-[4px] border-[#D6D3CC] focus:ring-0"
+                  />
+                </label>
+
+                {formHasValidity ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#D6D3CC]">
+                    <div>
+                      <label className="block text-[11px] text-[#6B6A64] mb-1">Data / Hora de Início</label>
+                      <input
+                        type="datetime-local"
+                        value={formDataInicio}
+                        onChange={(e) => setFormDataInicio(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-[6px] bg-[#F4F3EF] border border-[#D6D3CC] text-xs tabular-nums text-[#272727]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[#6B6A64] mb-1">Data / Hora de Fim</label>
+                      <input
+                        type="datetime-local"
+                        value={formDataFim}
+                        onChange={(e) => setFormDataFim(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-[6px] bg-[#F4F3EF] border border-[#D6D3CC] text-xs tabular-nums text-[#272727]"
+                      />
+                    </div>
+                    <p className="sm:col-span-2 text-[11px] text-[#6B6A64]">
+                      A peça só será exibida na loja dentro deste intervalo de datas e horas.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#6B6A64]">
+                    Sem validade configurada: a peça será exibida continuamente enquanto estiver ativa.
+                  </p>
+                )}
+              </div>
+
+              {/* Botões do Rodapé */}
+              <div className="pt-4 border-t border-[#D6D3CC] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 rounded-[6px] border border-[#D6D3CC] bg-[#EEEDE8] hover:bg-[#E4E2DD] text-[#272727] text-xs font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving || isUploading}
+                  className="px-5 py-2 rounded-[6px] bg-[#004AAD] text-white text-xs font-medium hover:bg-[#003884] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Salvar Peça</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs select-none">
+          <div className="bg-[#F4F3EF] border border-[#D6D3CC] rounded-[8px] max-w-sm w-full p-6 space-y-4 shadow-lg text-center">
+            <div className="w-10 h-10 rounded-[6px] bg-[#9B2C2C]/10 text-[#9B2C2C] flex items-center justify-center mx-auto">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-[#272727]">Excluir peça visual?</h4>
+              <p className="text-xs text-[#6B6A64] mt-1 leading-relaxed">
+                Esta peça será removida permanentemente do gerenciador e deixará de ser exibida na loja virtual.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setDeletingId(null)}
+                className="px-4 py-2 rounded-[6px] border border-[#D6D3CC] bg-[#EEEDE8] text-[#272727] text-xs font-medium hover:bg-[#E4E2DD]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(deletingId)}
+                className="px-4 py-2 rounded-[6px] bg-[#9B2C2C] text-white text-xs font-medium hover:bg-[#802222]"
+              >
+                Sim, excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

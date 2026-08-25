@@ -54,6 +54,31 @@
         "addresses": { "type": "array", "description": "Saved shipping addresses" }
       },
       "required": ["id", "name", "email"]
+    },
+    "MarketingPeca": {
+      "title": "MarketingPeca",
+      "description": "Visual marketing asset for storefront (full banner, secondary banner, card, campaign pop-up)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique asset ID" },
+        "tipo": { "type": "string", "enum": ["full_banner", "banner", "card", "popup"], "description": "Asset visual type" },
+        "imagemUrl": { "type": "string", "description": "Firebase Storage or image URL" },
+        "titulo": { "type": "string", "description": "Optional title / alt text" },
+        "linkDestino": { "type": "string", "description": "Target destination URL or category slug" },
+        "ordem": { "type": "number", "description": "Display order within the type" },
+        "ativo": { "type": "boolean", "description": "Active/inactive toggle" },
+        "dataInicio": { "type": "string", "description": "Optional start validity ISO timestamp" },
+        "dataFim": { "type": "string", "description": "Optional end validity ISO timestamp" },
+        "largura": { "type": "number", "description": "Popup custom width in pixels" },
+        "altura": { "type": "number", "description": "Popup custom height in pixels" }
+      },
+      "required": ["id", "tipo", "imagemUrl", "ordem", "ativo"]
+    }
+  },
+  "firestore": {
+    "/marketing_pecas/{pecaId}": {
+      "schema": "MarketingPeca",
+      "description": "Visual marketing banners and campaign pop-ups"
     }
   }
 }

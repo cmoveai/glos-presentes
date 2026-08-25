@@ -10,6 +10,7 @@ import { ProductModule } from "./ProductModule";
 import { OrderModule } from "./OrderModule";
 import { CustomerManager } from "./CustomerManager";
 import { SupplierManager } from "./SupplierManager";
+import { MarketingManager } from "./MarketingManager";
 import { getProductsFromStorage } from "../../services/productService";
 import { Sparkles, Layers, CheckCircle2 } from "lucide-react";
 import { BRAND_CONFIG } from "../../config/brand";
@@ -169,6 +170,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               />
             ) : activeSection.id === "fornecedores" ? (
               <SupplierManager products={getProductsFromStorage()} />
+            ) : activeSection.id === "marketing" ? (
+              <MarketingManager />
             ) : (
               <div className="space-y-6">
                 <PageHeader
