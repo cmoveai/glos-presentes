@@ -65,7 +65,7 @@ export const gerarMensagemPedirArquivo = (
   orderNumber: string
 ): string => {
   const firstName = customerName.split(" ")[0];
-  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Glos Presentes! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara!\n\nPara garantir a máxima nitidez e acabamento na confecção do seu presente, por favor faça o upload das suas fotos em alta resolução direto na sua Área do Cliente:\n👉 https://glos.com.br/minha-conta\n\nAssim que você enviar por lá, a Cris no nosso ateliê já vai preparar a prova visual com todo carinho para você aprovar aqui! Se tiver qualquer dúvida, é só me chamar por aqui.`;
+  return `Olá, ${firstName}! Tudo bem? 🌸 Aqui é da Nivah Presentes Criativos! Muito obrigada por escolher a gente para esse presente especial. Seu pedido ${orderNumber} (${productName}) já está confirmado e agora queremos deixá-lo com a sua cara!\n\nPara garantir a máxima nitidez e acabamento na confecção do seu presente, por favor faça o upload das suas fotos em alta resolução direto na sua Área do Cliente:\n👉 https://glos.com.br/minha-conta\n\nAssim que você enviar por lá, a Cris no nosso ateliê já vai preparar a prova visual com todo carinho para você aprovar aqui! Se tiver qualquer dúvida, é só me chamar por aqui.`;
 };
 
 /**

@@ -26,10 +26,22 @@ import { OCCASIONS } from "../../data/occasions";
 import { ProductCategory, ProductOccasion, CategoryInfo } from "../../types";
 import { fetchCategories } from "../../lib/firebase";
 import { BrandLogo } from "../admin/BrandLogo";
+import {
+  MAIN_CATEGORIES,
+  DYNAMIC_COLLECTIONS,
+  DYNAMIC_TAG_GROUPS,
+  MainCategoryConfig,
+} from "../../config/categories";
 
 interface HeaderProps {
   onNavigateHome: () => void;
-  onNavigateCatalog: (category?: ProductCategory, occasion?: ProductOccasion, tag?: string, search?: string) => void;
+  onNavigateCatalog: (
+    category?: ProductCategory,
+    occasion?: ProductOccasion,
+    tag?: string,
+    search?: string,
+    subcategory?: string
+  ) => void;
   onNavigateProduct: (slug: string) => void;
   onNavigateFavorites: () => void;
   onNavigateAccount: (tab?: "profile" | "orders" | "addresses" | "favorites") => void;
@@ -57,6 +69,16 @@ export const Header: React.FC<HeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOccasionsDropdownOpen, setIsOccasionsDropdownOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const [activeCatDropdown, setActiveCatDropdown] = useState<string | null>(null);
+  const [isDatesDropdownOpen, setIsDatesDropdownOpen] = useState(false);
+  const [isCollectionsDropdownOpen, setIsCollectionsDropdownOpen] = useState(false);
+  const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>(null);
+  const [expandedMobileCollection, setExpandedMobileCollection] = useState<string | null>(null);
+
+  const datesCollection = DYNAMIC_COLLECTIONS.find((c) => c.id === "datas");
+  const otherCollections = DYNAMIC_COLLECTIONS.filter(
+    (c) => c.id !== "lancamentos" && c.id !== "datas"
+  );
   const [navCategories, setNavCategories] = useState<CategoryInfo[]>(CATEGORIES);
 
   useEffect(() => {
@@ -419,85 +441,184 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* 3. CATEGORY NAVIGATION BAR (Desktop) */}
-      <nav className="hidden lg:block border-t border-stone-100 bg-stone-50/50">
-        <div className="max-w-7xl mx-auto px-6">
-          <ul className="flex items-center gap-1 text-xs font-semibold text-stone-700 py-1">
+      <nav className="hidden lg:block border-t border-[#D6D3CC] bg-[#F4F3EF]">
+        <div className="w-full px-6">
+          <ul className="flex items-center gap-0.5 text-xs text-[#272727] py-1 font-normal">
+            {/* Todos */}
             <li>
               <button
                 onClick={() => onNavigateCatalog(undefined)}
-                className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1 text-stone-900 font-semibold"
+                className="px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] hover:text-[#004AAD] transition-colors flex items-center gap-1 font-medium"
               >
-                <Sparkles className="w-3.5 h-3.5 text-stone-900" />
+                <Sparkles className="w-3.5 h-3.5 text-[#004AAD]" />
                 <span>Todos</span>
               </button>
             </li>
 
-            {activeCategories.map((cat) => {
-              const displayName = cat.nome || cat.name || cat.id;
-              const isOfertas = cat.id === "ofertas" || cat.slug === "ofertas";
-              const isNovidades = cat.id === "novidades" || cat.slug === "novidades";
-              const isOcasiao = cat.id === "por-ocasiao" || cat.slug === "por-ocasiao";
+            {/* ENTRADA PRÓPRIA: Lançamentos */}
+            <li>
+              <button
+                onClick={() => onNavigateCatalog(undefined, undefined, "Lançamentos")}
+                className="px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] hover:text-[#004AAD] transition-colors flex items-center gap-1 font-medium"
+              >
+                <Flame className="w-3.5 h-3.5 text-[#004AAD]" />
+                <span>Lançamentos</span>
+              </button>
+            </li>
 
-              if (isOcasiao) {
-                return (
-                  <li key={cat.id} className="relative">
+            {/* ENTRADA PRÓPRIA: Datas */}
+            <li
+              className="relative"
+              onMouseEnter={() => {
+                setIsDatesDropdownOpen(true);
+                setActiveCatDropdown(null);
+                setIsCollectionsDropdownOpen(false);
+              }}
+              onMouseLeave={() => setIsDatesDropdownOpen(false)}
+            >
+              <button
+                onClick={() => {
+                  setIsDatesDropdownOpen((prev) => !prev);
+                  setActiveCatDropdown(null);
+                  setIsCollectionsDropdownOpen(false);
+                }}
+                className="px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] hover:text-[#004AAD] transition-colors flex items-center gap-1 font-medium"
+              >
+                <span>Datas</span>
+                <ChevronDown className="w-3 h-3 text-[#6B6A64]" />
+              </button>
+
+              {isDatesDropdownOpen && datesCollection && (
+                <div className="absolute top-full left-0 mt-0.5 w-56 bg-[#F4F3EF] rounded-[8px] border border-[#D6D3CC] p-1.5 z-50 animate-in fade-in duration-100">
+                  <div className="px-2.5 py-1 text-[10px] uppercase font-medium tracking-wider text-[#9B998F] border-b border-[#D6D3CC] mb-1">
+                    Datas Comemorativas
+                  </div>
+                  {datesCollection.tags.map((dataTag) => (
                     <button
-                      onClick={() => setIsOccasionsDropdownOpen((p) => !p)}
-                      className="px-3 py-2 rounded-lg hover:bg-stone-200/70 hover:text-stone-950 transition-colors flex items-center gap-1"
+                      key={dataTag}
+                      onClick={() => {
+                        setIsDatesDropdownOpen(false);
+                        onNavigateCatalog(undefined, undefined, dataTag);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-normal text-[#272727] hover:text-[#004AAD] transition-colors flex items-center justify-between"
                     >
-                      <span>{displayName}</span>
-                      <ChevronDown className="w-3.5 h-3.5 text-stone-600" />
+                      <span>{dataTag}</span>
+                      <span className="text-[10px] text-[#9B998F]">Ver</span>
                     </button>
+                  ))}
+                </div>
+              )}
+            </li>
 
-                    {isOccasionsDropdownOpen && (
-                      <div
-                        onMouseLeave={() => setIsOccasionsDropdownOpen(false)}
-                        className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50 grid grid-cols-1 gap-1 animate-in fade-in duration-150"
-                      >
-                        {OCCASIONS.map((occ) => (
-                          <button
-                            key={occ.id}
-                            onClick={() => {
-                              setIsOccasionsDropdownOpen(false);
-                              onNavigateCatalog(undefined, occ.id);
-                            }}
-                            className="text-left px-3 py-2 rounded-lg hover:bg-stone-100 text-xs font-medium text-stone-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{occ.name}</span>
-                            <span className="text-[10px] text-stone-600">Ver presentes</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                );
-              }
+            {/* CATEGORIAS PRINCIPAIS com Subcategorias */}
+            {MAIN_CATEGORIES.map((cat) => {
+              const isCurrentOpen = activeCatDropdown === cat.id;
 
               return (
-                <li key={cat.id}>
+                <li
+                  key={cat.id}
+                  className="relative"
+                  onMouseEnter={() => {
+                    setActiveCatDropdown(cat.id);
+                    setIsDatesDropdownOpen(false);
+                    setIsCollectionsDropdownOpen(false);
+                  }}
+                  onMouseLeave={() => {
+                    if (activeCatDropdown === cat.id) setActiveCatDropdown(null);
+                  }}
+                >
                   <button
                     onClick={() => {
-                      if (isOfertas) {
-                        onNavigateCatalog(undefined, undefined, "ofertas");
-                      } else {
-                        onNavigateCatalog(cat.id as any);
-                      }
+                      setActiveCatDropdown(null);
+                      onNavigateCatalog(cat.id as any);
                     }}
-                    className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-1 ${
-                      isOfertas
-                        ? "hover:bg-rose-100 text-rose-700 font-medium"
-                        : isNovidades
-                        ? "hover:bg-stone-200/70 text-emerald-700"
-                        : "hover:bg-stone-200/70 hover:text-stone-950"
-                    }`}
+                    className="px-2 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] hover:text-[#004AAD] transition-colors flex items-center gap-1 text-xs font-normal whitespace-nowrap"
                   >
-                    {isNovidades && <Flame className="w-3.5 h-3.5" />}
-                    {isOfertas && <Percent className="w-3.5 h-3.5" />}
-                    <span>{displayName}</span>
+                    <span>{cat.name}</span>
+                    {cat.subcategories.length > 0 && (
+                      <ChevronDown className="w-3 h-3 text-[#9B998F]" />
+                    )}
                   </button>
+
+                  {isCurrentOpen && cat.subcategories.length > 0 && (
+                    <div className="absolute top-full left-0 mt-0.5 w-56 bg-[#F4F3EF] rounded-[8px] border border-[#D6D3CC] p-1.5 z-50 animate-in fade-in duration-100">
+                      <button
+                        onClick={() => {
+                          setActiveCatDropdown(null);
+                          onNavigateCatalog(cat.id as any);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-medium text-[#004AAD] transition-colors border-b border-[#D6D3CC] mb-1 flex items-center justify-between"
+                      >
+                        <span>Ver tudo em {cat.name}</span>
+                        <span className="text-[10px] text-[#9B998F]">Todos</span>
+                      </button>
+                      {cat.subcategories.map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setActiveCatDropdown(null);
+                            onNavigateCatalog(cat.id as any, undefined, undefined, undefined, sub.name);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-normal text-[#272727] hover:text-[#004AAD] transition-colors"
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </li>
               );
             })}
+
+            {/* DEMAIS COLEÇÕES DINÂMICAS: Por Ocasião, Por Profissão, Licenciados */}
+            <li
+              className="relative ml-auto"
+              onMouseEnter={() => {
+                setIsCollectionsDropdownOpen(true);
+                setActiveCatDropdown(null);
+                setIsDatesDropdownOpen(false);
+              }}
+              onMouseLeave={() => setIsCollectionsDropdownOpen(false)}
+            >
+              <button
+                onClick={() => {
+                  setIsCollectionsDropdownOpen((prev) => !prev);
+                  setActiveCatDropdown(null);
+                  setIsDatesDropdownOpen(false);
+                }}
+                className="px-2.5 py-1.5 rounded-[6px] hover:bg-[#EEEDE8] text-[#004AAD] transition-colors flex items-center gap-1 font-medium"
+              >
+                <span>Coleções</span>
+                <ChevronDown className="w-3 h-3 text-[#004AAD]" />
+              </button>
+
+              {isCollectionsDropdownOpen && (
+                <div className="absolute top-full right-0 mt-0.5 w-80 bg-[#F4F3EF] rounded-[8px] border border-[#D6D3CC] p-3 z-50 grid grid-cols-2 gap-3 animate-in fade-in duration-100">
+                  {otherCollections.map((col) => (
+                    <div key={col.id} className="space-y-1">
+                      <div className="text-[10px] uppercase font-medium tracking-wider text-[#9B998F] border-b border-[#D6D3CC] pb-0.5 mb-1">
+                        {col.name}
+                      </div>
+                      <div className="space-y-0.5">
+                        {col.tags.map((tag) => (
+                          <button
+                            key={tag}
+                            onClick={() => {
+                              setIsCollectionsDropdownOpen(false);
+                              onNavigateCatalog(undefined, undefined, tag);
+                            }}
+                            className="w-full text-left px-1.5 py-1 rounded-[4px] hover:bg-[#EEEDE8] text-xs font-normal text-[#272727] hover:text-[#004AAD] transition-colors block truncate"
+                            title={tag}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </li>
           </ul>
         </div>
       </nav>
@@ -507,71 +628,207 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             onClick={() => setIsMobileMenuOpen(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            className="absolute inset-0 bg-[#272727]/50 backdrop-blur-xs"
           />
-          <div className="relative w-4/5 max-w-sm h-full bg-white shadow-2xl flex flex-col p-5 overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-200">
-              <BrandLogo size="sm" />
+          <div className="relative w-4/5 max-w-sm h-full bg-[#F4F3EF] border-r border-[#D6D3CC] flex flex-col p-5 overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-[#D6D3CC]">
+              <BrandLogo size="md" />
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1 text-stone-500 hover:text-stone-900"
+                className="p-1 text-[#6B6A64] hover:text-[#272727]"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="py-4 space-y-1">
-              <div className="text-xs font-bold text-stone-600 uppercase tracking-wider px-2 mb-2">
+            <div className="py-3 space-y-1">
+              {/* Todos */}
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onNavigateCatalog(undefined);
+                }}
+                className="w-full text-left px-3 py-2 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-medium text-[#272727] flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-[#004AAD]" />
+                <span>Ver Todos os Produtos</span>
+              </button>
+
+              {/* Lançamentos */}
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onNavigateCatalog(undefined, undefined, "Lançamentos");
+                }}
+                className="w-full text-left px-3 py-2 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-medium text-[#272727] flex items-center gap-2"
+              >
+                <Flame className="w-4 h-4 text-[#004AAD]" />
+                <span>Lançamentos</span>
+              </button>
+
+              {/* Datas Comemorativas */}
+              {datesCollection && (
+                <div className="border-t border-[#D6D3CC] pt-2 mt-2">
+                  <button
+                    onClick={() =>
+                      setExpandedMobileCollection((prev) =>
+                        prev === "datas" ? null : "datas"
+                      )
+                    }
+                    className="w-full text-left px-3 py-2 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-medium text-[#272727] flex items-center justify-between"
+                  >
+                    <span>Datas Comemorativas</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-[#6B6A64] transition-transform ${
+                        expandedMobileCollection === "datas" ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {expandedMobileCollection === "datas" && (
+                    <div className="pl-4 pr-1 py-1 space-y-0.5">
+                      {datesCollection.tags.map((dataTag) => (
+                        <button
+                          key={dataTag}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            onNavigateCatalog(undefined, undefined, dataTag);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-[4px] hover:bg-[#EEEDE8] text-xs text-[#6B6A64] hover:text-[#004AAD] flex items-center justify-between"
+                        >
+                          <span>{dataTag}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Categorias Principais (Accordion com Subcategorias) */}
+            <div className="py-3 border-t border-[#D6D3CC] space-y-1">
+              <div className="text-[11px] font-medium text-[#9B998F] uppercase tracking-wider px-3 mb-1">
                 Categorias Principais
               </div>
-              {activeCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    if (cat.id === "ofertas" || cat.slug === "ofertas") {
-                      onNavigateCatalog(undefined, undefined, "ofertas");
-                    } else {
-                      onNavigateCatalog(cat.id as any);
-                    }
-                  }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-stone-100 text-sm font-medium text-stone-800 flex items-center justify-between"
-                >
-                  <span>{cat.nome || cat.name || cat.id}</span>
-                  {cat.itemCount ? (
-                    <span className="text-xs text-stone-600">{cat.itemCount} itens</span>
-                  ) : null}
-                </button>
-              ))}
+              {MAIN_CATEGORIES.map((cat) => {
+                const isExpanded = expandedMobileCategory === cat.id;
+
+                return (
+                  <div key={cat.id} className="space-y-0.5">
+                    <div className="flex items-center justify-between rounded-[6px] hover:bg-[#EEEDE8]">
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          onNavigateCatalog(cat.id as any);
+                        }}
+                        className="flex-1 text-left px-3 py-2 text-xs font-normal text-[#272727] hover:text-[#004AAD]"
+                      >
+                        {cat.name}
+                      </button>
+                      {cat.subcategories.length > 0 && (
+                        <button
+                          onClick={() =>
+                            setExpandedMobileCategory((prev) =>
+                              prev === cat.id ? null : cat.id
+                            )
+                          }
+                          className="px-2 py-2 text-[#6B6A64]"
+                        >
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {isExpanded && cat.subcategories.length > 0 && (
+                      <div className="pl-4 pr-1 py-1 space-y-0.5 border-l border-[#D6D3CC] ml-3">
+                        <button
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            onNavigateCatalog(cat.id as any);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-[#004AAD] font-medium"
+                        >
+                          Ver tudo em {cat.name}
+                        </button>
+                        {cat.subcategories.map((sub) => (
+                          <button
+                            key={sub.id}
+                            onClick={() => {
+                              setIsMobileMenuOpen(false);
+                              onNavigateCatalog(
+                                cat.id as any,
+                                undefined,
+                                undefined,
+                                undefined,
+                                sub.name
+                              );
+                            }}
+                            className="w-full text-left px-2 py-1 text-xs text-[#6B6A64] hover:text-[#004AAD]"
+                          >
+                            {sub.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="py-4 border-t border-stone-200 space-y-1">
-              <div className="text-xs font-bold text-stone-600 uppercase tracking-wider px-2 mb-2">
-                Presentes por Ocasião
+            {/* Demais Coleções Dinâmicas */}
+            <div className="py-3 border-t border-[#D6D3CC] space-y-1">
+              <div className="text-[11px] font-medium text-[#9B998F] uppercase tracking-wider px-3 mb-1">
+                Outras Coleções
               </div>
-              {OCCASIONS.slice(0, 5).map((occ) => (
-                <button
-                  key={occ.id}
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onNavigateCatalog(undefined, occ.id);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-stone-100 text-xs font-medium text-stone-700"
-                >
-                  {occ.name}
-                </button>
+              {otherCollections.map((col) => (
+                <div key={col.id} className="space-y-0.5">
+                  <button
+                    onClick={() =>
+                      setExpandedMobileCollection((prev) =>
+                        prev === col.id ? null : col.id
+                      )
+                    }
+                    className="w-full text-left px-3 py-2 rounded-[6px] hover:bg-[#EEEDE8] text-xs font-normal text-[#272727] flex items-center justify-between"
+                  >
+                    <span>{col.name}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-[#6B6A64] transition-transform ${
+                        expandedMobileCollection === col.id ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {expandedMobileCollection === col.id && (
+                    <div className="pl-4 pr-1 py-1 space-y-0.5 border-l border-[#D6D3CC] ml-3">
+                      {col.tags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            setIsMobileMenuOpen(false);
+                            onNavigateCatalog(undefined, undefined, tag);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-[#6B6A64] hover:text-[#004AAD]"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
 
-            <div className="mt-auto pt-4 border-t border-stone-200 space-y-2">
-              <div className="text-xs text-stone-500 mb-1">Atendimento WhatsApp</div>
+            <div className="mt-auto pt-4 border-t border-[#D6D3CC] space-y-2">
+              <div className="text-[11px] text-[#6B6A64] mb-1">Atendimento Afetivo WhatsApp</div>
               <a
                 href={`https://wa.me/${BRAND_CONFIG.whatsapp}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 bg-emerald-600 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
+                className="w-full py-2 px-3 bg-[#004AAD] text-white text-xs font-medium rounded-[6px] flex items-center justify-center gap-2"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-3.5 h-3.5" />
                 <span>{BRAND_CONFIG.whatsappDisplay}</span>
               </a>
             </div>

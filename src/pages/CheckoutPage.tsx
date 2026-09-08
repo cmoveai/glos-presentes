@@ -450,7 +450,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   if (returnStatus === "approved" || (completedOrder && !returnStatus)) {
     const orderNum = completedOrder?.id || externalReference || "PED-NOVO";
     const waOrderMsg = encodeURIComponent(
-      `Olá, equipe glos.! Acabei de fazer meu pedido #${orderNum}. Gostaria de enviar os detalhes e fotos para personalização.`
+      `Olá, equipe Nivah! Acabei de fazer meu pedido #${orderNum}. Gostaria de enviar os detalhes e fotos para personalização.`
     );
     const waLink = `https://wa.me/5511961820588?text=${waOrderMsg}`;
 

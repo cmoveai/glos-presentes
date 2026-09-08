@@ -75,19 +75,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       } ${className}`}
     >
       {/* Topo da Sidebar: Logo + Nome + Rótulo + Recolher */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-[#D6D3CC] shrink-0">
+      <div className="h-20 px-4 flex items-center justify-between border-b border-[#D6D3CC] shrink-0">
         {!isCollapsed ? (
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex flex-col">
-              <BrandLogo size="sm" />
-              <span className="text-[10px] font-normal uppercase tracking-wider text-[#9B998F] mt-0.5">
+            <div className="flex flex-col justify-center">
+              <BrandLogo size="md" />
+              <span className="text-[10px] font-normal uppercase tracking-wider text-[#9B998F] mt-1">
                 {BRAND_CONFIG.adminLabel}
               </span>
             </div>
           </div>
         ) : (
-          <div className="mx-auto">
-            <BrandLogo size="sm" />
+          <div className="mx-auto flex items-center justify-center">
+            <BrandLogo size="sm" className="max-w-[48px]" />
           </div>
         )}
 

@@ -1,7 +1,7 @@
 /**
- * CONFIGURAÇÃO CENTRAL DA MARCA — glos.
- * Marca: glos. (glos. presentes)
- * Nicho: Presentes afetivos, kits finos e produtos personalizados para pessoa física.
+ * CONFIGURAÇÃO CENTRAL DA MARCA — Nivah
+ * Marca: Nivah (Nivah presentes criativos)
+ * Nicho: Presentes criativos, kits afetivos e produtos personalizados para pessoa física.
  * Aplicação standalone - Nenhuma credencial/segredo neste arquivo (sempre em variáveis de ambiente do servidor).
  */
 
@@ -34,12 +34,12 @@ export interface BrandConfig {
 }
 
 export const BRAND_CONFIG: BrandConfig = {
-  name: "glos.",
-  displayName: "glos. presentes",
-  shortName: "glos.",
+  name: "Nivah",
+  displayName: "Nivah presentes criativos",
+  shortName: "Nivah",
   adminLabel: "Painel do Lojista",
-  tagline: "Presentes finos, kits afetivos e criações personalizadas com foto e gravação",
-  description: "Curadoria autoral de presentes criativos, kits com afeto, papelaria fina e itens personalizados para surpreender quem você ama.",
+  tagline: "Presentes criativos, kits afetivos e criações personalizadas com carinho",
+  description: "Curadoria autoral de presentes criativos, kits com afeto, papelaria e itens personalizados para surpreender quem você ama.",
   whatsapp: "5511961820588",
   whatsappDisplay: "(11) 96182-0588",
   whatsappLink: "https://wa.me/5511961820588",
@@ -48,7 +48,7 @@ export const BRAND_CONFIG: BrandConfig = {
     link: "https://wa.me/5511961820588",
     rawNumber: "5511961820588",
   },
-  email: "contato@glospresentes.com.br",
+  email: "contato@nivahpresentes.com.br",
   phone: "5511961820588",
   phoneDisplay: "(11) 96182-0588",
   openingHours: "Segunda a Sexta das 09h às 18h | Sábado das 09h às 13h",
@@ -57,7 +57,7 @@ export const BRAND_CONFIG: BrandConfig = {
   pixDiscountPercentage: 5, // 5% de desconto no Pix
   cnpjPlaceholder: "00.000.000/0001-00 (Demonstrativo)",
   addressPlaceholder: "São Paulo - SP, Brasil",
-  instagramHandle: "@glospresentes",
+  instagramHandle: "@nivahpresentes",
   isDemoMode: true,
 };
 

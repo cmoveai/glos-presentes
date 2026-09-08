@@ -207,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addresses: [],
           };
           setUser(newUser);
-          showToast("Cadastro realizado com sucesso na glos.!", "success");
+          showToast("Cadastro realizado com sucesso na Nivah!", "success");
           return;
         }
       } catch (e) {

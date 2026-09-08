@@ -17,8 +17,16 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 
+import {
+  MAIN_CATEGORIES,
+  DYNAMIC_COLLECTIONS,
+  findMainCategory,
+  slugifyCategory,
+} from "../config/categories";
+
 interface CatalogPageProps {
   initialCategory?: ProductCategory;
+  initialSubcategory?: string;
   initialOccasion?: ProductOccasion;
   initialTag?: string;
   initialSearch?: string;
@@ -28,6 +36,7 @@ interface CatalogPageProps {
 
 export const CatalogPage: React.FC<CatalogPageProps> = ({
   initialCategory,
+  initialSubcategory,
   initialOccasion,
   initialTag,
   initialSearch,
@@ -36,6 +45,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 }) => {
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || "all");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>(initialSubcategory || "all");
+  const [selectedTag, setSelectedTag] = useState<string>(initialTag || "all");
   const [selectedOccasion, setSelectedOccasion] = useState<string>(initialOccasion || "all");
   const [selectedRecipient, setSelectedRecipient] = useState<string>(
     initialTag && initialTag.startsWith("para-") ? initialTag : "all"
@@ -64,6 +75,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
   }, [categoriesList]);
 
+  // Current selected main category config (if any)
+  const currentCategoryConfig = useMemo(() => {
+    if (selectedCategory === "all") return undefined;
+    return findMainCategory(selectedCategory);
+  }, [selectedCategory]);
+
   // Filter logic
   const filteredProducts = useMemo(() => {
     return PRODUCTS.filter((product) => {
@@ -72,15 +89,47 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         const q = searchQuery.toLowerCase().trim();
         const matchName = product.name.toLowerCase().includes(q);
         const matchDesc = product.description.toLowerCase().includes(q);
-        const matchCat = product.categoryName.toLowerCase().includes(q);
-        const matchSku = product.sku.toLowerCase().includes(q);
-        if (!matchName && !matchDesc && !matchCat && !matchSku) return false;
+        const matchCat = product.categoryName?.toLowerCase().includes(q);
+        const matchSku = product.sku?.toLowerCase().includes(q);
+        const matchSub = product.subcategory?.toLowerCase().includes(q);
+        const matchTag = product.tags?.some((t) => t.toLowerCase().includes(q));
+        if (!matchName && !matchDesc && !matchCat && !matchSku && !matchSub && !matchTag) return false;
       }
 
       // 2. Category
       if (selectedCategory !== "all") {
-        if (selectedCategory === "novidades" && !product.new) return false;
-        if (selectedCategory !== "novidades" && product.category !== selectedCategory) return false;
+        if (selectedCategory === "novidades" || selectedCategory === "lancamentos") {
+          if (!product.new && !product.tags?.includes("Lançamentos")) return false;
+        } else {
+          const matchCat =
+            product.category === selectedCategory ||
+            product.categoryName?.toLowerCase() === selectedCategory.toLowerCase() ||
+            slugifyCategory(product.categoryName || "") === selectedCategory ||
+            slugifyCategory(product.category || "") === selectedCategory ||
+            (currentCategoryConfig && (product.categoryName === currentCategoryConfig.name || product.category === currentCategoryConfig.id as any));
+          if (!matchCat) return false;
+        }
+      }
+
+      // 2b. Subcategory
+      if (selectedSubcategory !== "all") {
+        const matchSub =
+          product.subcategory?.toLowerCase() === selectedSubcategory.toLowerCase() ||
+          slugifyCategory(product.subcategory || "") === slugifyCategory(selectedSubcategory);
+        if (!matchSub) return false;
+      }
+
+      // 2c. Tag
+      if (selectedTag !== "all") {
+        const matchTag =
+          product.tags?.some(
+            (t) =>
+              t.toLowerCase() === selectedTag.toLowerCase() ||
+              slugifyCategory(t) === slugifyCategory(selectedTag)
+          ) ||
+          product.occasions?.some((o) => o.toLowerCase() === selectedTag.toLowerCase()) ||
+          (selectedTag === "Lançamentos" && product.new);
+        if (!matchTag) return false;
       }
 
       // 3. Occasion
@@ -105,7 +154,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       if (onlyInStock && product.stock <= 0) return false;
 
       // 7. Kits only
-      if (onlyKits && !product.isKit && product.category !== "kits-presenteaveis") return false;
+      if (onlyKits && !product.isKit && product.category !== "kits-presenteaveis" && product.categoryName !== "Presentes e Kits") return false;
 
       return true;
     }).sort((a, b) => {
@@ -121,6 +170,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   }, [
     searchQuery,
     selectedCategory,
+    selectedSubcategory,
+    selectedTag,
+    currentCategoryConfig,
     selectedOccasion,
     selectedRecipient,
     priceRange,
@@ -131,6 +183,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleClearFilters = () => {
     setSelectedCategory("all");
+    setSelectedSubcategory("all");
+    setSelectedTag("all");
     setSelectedOccasion("all");
     setSelectedRecipient("all");
     setSearchQuery("");
@@ -142,6 +196,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const activeFiltersCount =
     (selectedCategory !== "all" ? 1 : 0) +
+    (selectedSubcategory !== "all" ? 1 : 0) +
+    (selectedTag !== "all" ? 1 : 0) +
     (selectedOccasion !== "all" ? 1 : 0) +
     (selectedRecipient !== "all" ? 1 : 0) +
     (priceRange.max < 600 ? 1 : 0) +
@@ -213,11 +269,11 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
           {/* Active Filter Chips */}
           {activeFiltersCount > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-stone-200">
-              <span className="text-xs font-semibold text-stone-500">Filtros ativos:</span>
+            <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-[#D6D3CC]">
+              <span className="text-xs font-normal text-[#6B6A64]">Filtros ativos:</span>
 
               {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-stone-900 text-white rounded-full text-xs">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#272727] text-white rounded-[6px] text-xs">
                   <span>Busca: "{searchQuery}"</span>
                   <button onClick={() => setSearchQuery("")}>
                     <X className="w-3 h-3" />
@@ -226,16 +282,37 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               )}
 
               {selectedCategory !== "all" && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium">
-                  <span>{CATEGORIES.find((c) => c.id === selectedCategory)?.name}</span>
-                  <button onClick={() => setSelectedCategory("all")}>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
+                  <span>Categoria: {currentCategoryConfig?.name || selectedCategory}</span>
+                  <button onClick={() => {
+                    setSelectedCategory("all");
+                    setSelectedSubcategory("all");
+                  }}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedSubcategory !== "all" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#004AAD]/10 border border-[#004AAD]/30 text-[#004AAD] rounded-[6px] text-xs font-medium">
+                  <span>Subcategoria: {selectedSubcategory}</span>
+                  <button onClick={() => setSelectedSubcategory("all")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedTag !== "all" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
+                  <span>Tag / Coleção: {selectedTag}</span>
+                  <button onClick={() => setSelectedTag("all")}>
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
 
               {selectedOccasion !== "all" && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
                   <span>{OCCASIONS.find((o) => o.id === selectedOccasion)?.name}</span>
                   <button onClick={() => setSelectedOccasion("all")}>
                     <X className="w-3 h-3" />
@@ -244,7 +321,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               )}
 
               {selectedRecipient !== "all" && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
                   <span className="capitalize">{selectedRecipient.replace("-", " ")}</span>
                   <button onClick={() => setSelectedRecipient("all")}>
                     <X className="w-3 h-3" />
@@ -253,7 +330,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               )}
 
               {onlyKits && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-200 text-amber-900 rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
                   <span>Apenas Kits</span>
                   <button onClick={() => setOnlyKits(false)}>
                     <X className="w-3 h-3" />
@@ -262,7 +339,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               )}
 
               {priceRange.max < 600 && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#EEEDE8] border border-[#D6D3CC] text-[#272727] rounded-[6px] text-xs font-normal">
                   <span>Até R$ {priceRange.max}</span>
                   <button onClick={() => setPriceRange({ min: 0, max: 600 })}>
                     <X className="w-3 h-3" />
@@ -272,7 +349,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
               <button
                 onClick={handleClearFilters}
-                className="text-xs text-stone-600 hover:text-stone-950 underline ml-2 font-medium"
+                className="text-xs text-[#004AAD] hover:underline ml-2 font-normal"
               >
                 Limpar todos
               </button>
@@ -284,44 +361,134 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* DESKTOP SIDEBAR FILTERS */}
           <aside className="hidden lg:block lg:col-span-1 space-y-6">
-            <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-2xs space-y-6">
+            <div className="bg-[#F4F3EF] p-5 rounded-[8px] border border-[#D6D3CC] space-y-6">
               {/* Category Filter */}
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900 mb-3">
-                  Categorias
+                <h3 className="text-xs font-medium uppercase tracking-wider text-[#272727] mb-3">
+                  Categorias Principais
                 </h3>
                 <ul className="space-y-1 text-xs">
                   <li>
                     <button
-                      onClick={() => setSelectedCategory("all")}
-                      className={`w-full text-left py-1.5 px-2 rounded-lg transition-colors flex items-center justify-between ${
+                      onClick={() => {
+                        setSelectedCategory("all");
+                        setSelectedSubcategory("all");
+                      }}
+                      className={`w-full text-left py-1.5 px-2 rounded-[6px] transition-colors flex items-center justify-between ${
                         selectedCategory === "all"
-                          ? "bg-stone-900 text-white font-semibold"
-                          : "text-stone-700 hover:bg-stone-100"
+                          ? "bg-[#004AAD] text-white font-medium"
+                          : "text-[#272727] hover:bg-[#EEEDE8]"
                       }`}
                     >
                       <span>Todos os Produtos</span>
-                      <span className="text-[11px] opacity-70">{PRODUCTS.length}</span>
+                      <span className="text-[11px] opacity-80">{PRODUCTS.length}</span>
                     </button>
                   </li>
-                  {activeCategories.map((cat) => (
-                    <li key={cat.id}>
-                      <button
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`w-full text-left py-1.5 px-2 rounded-lg transition-colors flex items-center justify-between ${
-                          selectedCategory === cat.id
-                            ? "bg-stone-900 text-white font-semibold"
-                            : "text-stone-700 hover:bg-stone-100"
-                        }`}
-                      >
-                        <span>{cat.nome || cat.name || cat.id}</span>
-                        {cat.itemCount ? (
-                          <span className="text-[11px] opacity-70">{cat.itemCount}</span>
-                        ) : null}
-                      </button>
-                    </li>
-                  ))}
+                  {MAIN_CATEGORIES.map((cat) => {
+                    const isSelected =
+                      selectedCategory === cat.id ||
+                      selectedCategory === cat.name ||
+                      slugifyCategory(selectedCategory) === cat.id;
+
+                    return (
+                      <li key={cat.id} className="space-y-1">
+                        <button
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedCategory("all");
+                              setSelectedSubcategory("all");
+                            } else {
+                              setSelectedCategory(cat.id);
+                              setSelectedSubcategory("all");
+                            }
+                          }}
+                          className={`w-full text-left py-1.5 px-2 rounded-[6px] transition-colors flex items-center justify-between ${
+                            isSelected
+                              ? "bg-[#004AAD] text-white font-medium"
+                              : "text-[#272727] hover:bg-[#EEEDE8]"
+                          }`}
+                        >
+                          <span>{cat.name}</span>
+                          {cat.subcategories.length > 0 && (
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${
+                                isSelected ? "rotate-180" : ""
+                              }`}
+                            />
+                          )}
+                        </button>
+
+                        {/* Subcategories */}
+                        {isSelected && cat.subcategories.length > 0 && (
+                          <div className="pl-3 pr-1 py-1 space-y-0.5 border-l border-[#D6D3CC] ml-2">
+                            <button
+                              onClick={() => setSelectedSubcategory("all")}
+                              className={`w-full text-left py-1 px-2 rounded-[4px] text-xs transition-colors ${
+                                selectedSubcategory === "all"
+                                  ? "text-[#004AAD] font-medium bg-[#EEEDE8]"
+                                  : "text-[#6B6A64] hover:text-[#272727]"
+                              }`}
+                            >
+                              Todas as subcategorias
+                            </button>
+                            {cat.subcategories.map((sub) => {
+                              const isSubSelected = selectedSubcategory === sub.name;
+                              return (
+                                <button
+                                  key={sub.id}
+                                  onClick={() => setSelectedSubcategory(sub.name)}
+                                  className={`w-full text-left py-1 px-2 rounded-[4px] text-xs transition-colors ${
+                                    isSubSelected
+                                      ? "text-[#004AAD] font-medium bg-[#EEEDE8]"
+                                      : "text-[#6B6A64] hover:text-[#272727]"
+                                  }`}
+                                >
+                                  {sub.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
+              </div>
+
+              {/* Coleções Dinâmicas / Tags */}
+              <div className="border-t border-[#D6D3CC] pt-4">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-[#272727] mb-3">
+                  Coleções Dinâmicas
+                </h3>
+                <div className="space-y-3">
+                  {DYNAMIC_COLLECTIONS.map((col) => (
+                    <div key={col.id} className="space-y-1">
+                      <div className="text-[11px] font-medium text-[#9B998F] uppercase">
+                        {col.name}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {col.tags.map((tag) => {
+                          const isTagActive = selectedTag === tag;
+                          return (
+                            <button
+                              key={tag}
+                              onClick={() => {
+                                setSelectedTag(isTagActive ? "all" : tag);
+                              }}
+                              className={`px-2 py-0.5 rounded-[4px] text-[11px] transition-colors border ${
+                                isTagActive
+                                  ? "bg-[#004AAD] text-white border-[#004AAD]"
+                                  : "bg-[#EEEDE8] text-[#6B6A64] border-[#D6D3CC] hover:text-[#272727]"
+                              }`}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="border-t border-stone-100 pt-5">
@@ -472,31 +639,80 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
               </button>
             </div>
 
-            <div className="space-y-6 flex-1">
+            <div className="space-y-5 flex-1">
               {/* Category */}
               <div>
-                <h4 className="text-xs font-bold text-stone-900 uppercase mb-2">Categoria</h4>
+                <h4 className="text-xs font-medium text-[#272727] uppercase mb-1.5">
+                  Categoria Principal
+                </h4>
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-300"
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setSelectedSubcategory("all");
+                  }}
+                  className="w-full text-xs p-2.5 rounded-[6px] border border-[#D6D3CC] bg-[#F4F3EF] text-[#272727]"
                 >
                   <option value="all">Todas as categorias</option>
-                  {activeCategories.map((cat) => (
+                  {MAIN_CATEGORIES.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.nome || cat.name || cat.id}
+                      {cat.name}
                     </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subcategory (if main category has subcategories) */}
+              {currentCategoryConfig && currentCategoryConfig.subcategories.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-[#272727] uppercase mb-1.5">
+                    Subcategoria ({currentCategoryConfig.name})
+                  </h4>
+                  <select
+                    value={selectedSubcategory}
+                    onChange={(e) => setSelectedSubcategory(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-[6px] border border-[#D6D3CC] bg-[#F4F3EF] text-[#272727]"
+                  >
+                    <option value="all">Todas as subcategorias</option>
+                    {currentCategoryConfig.subcategories.map((sub) => (
+                      <option key={sub.id} value={sub.name}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Coleção / Tag */}
+              <div>
+                <h4 className="text-xs font-medium text-[#272727] uppercase mb-1.5">
+                  Coleção Dinâmica / Tag
+                </h4>
+                <select
+                  value={selectedTag}
+                  onChange={(e) => setSelectedTag(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-[6px] border border-[#D6D3CC] bg-[#F4F3EF] text-[#272727]"
+                >
+                  <option value="all">Todas as coleções</option>
+                  {DYNAMIC_COLLECTIONS.map((col) => (
+                    <optgroup key={col.id} label={col.name}>
+                      {col.tags.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
 
               {/* Occasion */}
               <div>
-                <h4 className="text-xs font-bold text-stone-900 uppercase mb-2">Ocasião</h4>
+                <h4 className="text-xs font-medium text-[#272727] uppercase mb-1.5">Ocasião</h4>
                 <select
                   value={selectedOccasion}
                   onChange={(e) => setSelectedOccasion(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-stone-300"
+                  className="w-full text-xs p-2.5 rounded-[6px] border border-[#D6D3CC] bg-[#F4F3EF] text-[#272727]"
                 >
                   <option value="all">Todas as ocasiões</option>
                   {OCCASIONS.map((occ) => (
@@ -509,7 +725,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
               {/* Price */}
               <div>
-                <div className="flex justify-between text-xs font-bold mb-2">
+                <div className="flex justify-between text-xs font-medium mb-2 text-[#272727]">
                   <span>Preço Máximo</span>
                   <span>R$ {priceRange.max}</span>
                 </div>
@@ -522,36 +738,36 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   onChange={(e) =>
                     setPriceRange((prev) => ({ ...prev, max: Number(e.target.value) }))
                   }
-                  className="w-full accent-stone-950"
+                  className="w-full accent-[#004AAD]"
                 />
               </div>
 
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-medium text-stone-800">
+                <label className="flex items-center gap-2 text-xs font-normal text-[#272727]">
                   <input
                     type="checkbox"
                     checked={onlyKits}
                     onChange={(e) => setOnlyKits(e.target.checked)}
-                    className="rounded border-stone-300 text-stone-950"
+                    className="rounded border-[#D6D3CC] text-[#004AAD]"
                   />
                   <span>Apenas Kits Presenteáveis</span>
                 </label>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-stone-200 flex gap-3">
+            <div className="pt-4 border-t border-[#D6D3CC] flex gap-3">
               <button
                 onClick={() => {
                   handleClearFilters();
                   setIsMobileFilterOpen(false);
                 }}
-                className="flex-1 py-3 bg-stone-100 text-stone-800 text-xs font-bold rounded-xl"
+                className="flex-1 py-2.5 bg-[#EEEDE8] text-[#272727] text-xs font-medium rounded-[6px]"
               >
                 Limpar
               </button>
               <button
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="flex-1 py-3 bg-stone-950 text-white text-xs font-bold rounded-xl"
+                className="flex-1 py-2.5 bg-[#004AAD] text-white text-xs font-medium rounded-[6px]"
               >
                 Ver Resultados ({filteredProducts.length})
               </button>

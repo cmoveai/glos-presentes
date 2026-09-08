@@ -180,6 +180,8 @@ export interface Product {
   description: string;
   category: ProductCategory;
   categoryName: string;
+  subcategory?: string;
+  tags?: string[];
   productType?: ProductType;
   customizationOptions?: CustomizationOptions;
   licensingInfo?: LicensingInfo;

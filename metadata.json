@@ -1,6 +1,6 @@
 {
-  "name": "glos. - Painel do Lojista",
-  "description": "Painel administrativo do lojista para e-commerce B2C de presentes finos, criativos e personalizados com design minimalista e editorial.",
+  "name": "Nivah Presentes Criativos",
+  "description": "Painel administrativo do lojista para e-commerce B2C de presentes criativos, kits afetivos e produtos personalizados Nivah.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

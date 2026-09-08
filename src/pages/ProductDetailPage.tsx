@@ -454,7 +454,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 grid grid-cols-3 gap-2 text-center text-xs">
               <div className="flex flex-col items-center">
                 <ShieldCheck className="w-5 h-5 text-stone-800 mb-1" />
-                <span className="font-semibold text-stone-900">Garantia glos.</span>
+                <span className="font-semibold text-stone-900">Garantia Nivah</span>
                 <span className="text-[11px] text-stone-500">
                   {product.specifications.warranty || "90 dias"}
                 </span>

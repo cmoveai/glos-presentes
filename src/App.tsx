@@ -36,6 +36,7 @@ type PageRoute =
       occasion?: ProductOccasion;
       tag?: string;
       search?: string;
+      subcategory?: string;
     }
   | { name: "product"; slug: string }
   | { name: "cart" }
@@ -168,7 +169,8 @@ function AppContent() {
     category?: ProductCategory,
     occasion?: ProductOccasion,
     tag?: string,
-    search?: string
+    search?: string,
+    subcategory?: string
   ) => {
     navigateTo({
       name: "catalog",
@@ -176,6 +178,7 @@ function AppContent() {
       occasion,
       tag,
       search,
+      subcategory,
     });
   };
 
@@ -235,8 +238,9 @@ function AppContent() {
 
         {route.name === "catalog" && (
           <CatalogPage
-            key={`${route.category}-${route.occasion}-${route.tag}-${route.search}`}
+            key={`${route.category}-${route.subcategory}-${route.occasion}-${route.tag}-${route.search}`}
             initialCategory={route.category}
+            initialSubcategory={route.subcategory}
             initialOccasion={route.occasion}
             initialTag={route.tag}
             initialSearch={route.search}
@@ -328,7 +332,7 @@ function AppContent() {
         title="Acessar Painel do Lojista"
       >
         <LayoutDashboard className="w-3.5 h-3.5" />
-        <span>Painel do Lojista (glos.)</span>
+        <span>Painel do Lojista (Nivah)</span>
       </button>
 
       {/* FLOATING WHATSAPP BUTTON */}
