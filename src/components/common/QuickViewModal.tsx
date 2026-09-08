@@ -32,7 +32,8 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
   const currentPrice = product.promotionalPrice ?? product.price;
   const hasDiscount = !!product.promotionalPrice && product.promotionalPrice < product.price;
   const pixPrice = currentPrice * (1 - BRAND_CONFIG.pixDiscountPercentage / 100);
-  const installmentValue = currentPrice / (product.installments || 1);
+  const installmentCount = BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
+  const installmentValue = currentPrice / installmentCount;
 
   const handleAddToCart = () => {
     addToCart(product, quantity, selectedVariant, { wrap: giftWrap });
@@ -123,7 +124,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                   R$ {pixPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} no Pix ({BRAND_CONFIG.pixDiscountPercentage}% de desconto)
                 </p>
                 <p className="text-xs text-stone-600">
-                  ou {product.installments}x de R${" "}
+                  ou até {installmentCount}x de R${" "}
                   {installmentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} sem juros no cartão
                 </p>
               </div>

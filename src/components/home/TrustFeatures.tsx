@@ -12,7 +12,7 @@ export const TrustFeatures: React.FC = () => {
     {
       icon: <CreditCard className="w-6 h-6 text-stone-900" />,
       title: "Pagamento Facilitado",
-      description: "Parcele em até 10x no cartão.",
+      description: `Até ${BRAND_CONFIG.maxInstallmentsWithoutInterest}x sem juros no cartão.`,
     },
     {
       icon: <Truck className="w-6 h-6 text-stone-900" />,

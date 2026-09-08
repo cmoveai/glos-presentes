@@ -27,7 +27,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     : 0;
 
   const pixPrice = currentPrice * (1 - BRAND_CONFIG.pixDiscountPercentage / 100);
-  const installmentValue = currentPrice / (product.installments || 1);
+  const installmentCount = BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
+  const installmentValue = currentPrice / installmentCount;
 
   const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | undefined>(
     product.variants && product.variants.length > 0 ? product.variants[0] : undefined
@@ -184,7 +185,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </p>
 
             <p className="text-[11px] text-stone-600">
-              ou {product.installments}x de R${" "}
+              ou até {installmentCount}x de R${" "}
               {installmentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} sem juros
             </p>
           </div>

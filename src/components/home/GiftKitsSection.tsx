@@ -4,6 +4,7 @@ import { Product } from "../../types";
 import { Gift, Package, Check, ShoppingBag, Eye, Heart, Sparkles } from "lucide-react";
 import { useCart } from "../../context/CartContext";
 import { useFavorites } from "../../context/FavoritesContext";
+import { BRAND_CONFIG } from "../../config/brand";
 
 interface GiftKitsSectionProps {
   onNavigateProduct: (slug: string) => void;
@@ -153,8 +154,8 @@ export const GiftKitsSection: React.FC<GiftKitsSectionProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-stone-400">
-                    ou {activeKit.installments}x de R${" "}
-                    {(currentPrice / activeKit.installments).toFixed(2)} sem juros
+                    ou até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x de R${" "}
+                    {(currentPrice / (BRAND_CONFIG.maxInstallmentsWithoutInterest || 10)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} sem juros
                   </p>
                 </div>
 

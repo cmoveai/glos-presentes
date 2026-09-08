@@ -166,7 +166,7 @@ export const StaticPages: React.FC<StaticPagesProps> = ({ pageId, onNavigateCata
 
                   <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200">
                     <CreditCard className="w-6 h-6 text-stone-900 mb-2" />
-                    <h3 className="font-bold text-sm text-stone-900">Cartão até 10x sem juros</h3>
+                    <h3 className="font-bold text-sm text-stone-900">Cartão até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x sem juros</h3>
                     <p className="text-xs text-stone-600 mt-1">
                       Aceitamos Visa, Mastercard, Elo, Hipercard e American Express com processamento seguro criptografado.
                     </p>

@@ -197,7 +197,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
     : 0;
 
-  const installmentCount = product.installments || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
+  const installmentCount = BRAND_CONFIG.maxInstallmentsWithoutInterest || 10;
   const installmentValue = currentPrice / installmentCount;
 
   // Check if variants have varying prices
@@ -426,7 +426,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             {/* Legenda Obrigatória Discreta para Personalizáveis */}
             {productNature === "personalizavel" && (
               <p className="text-center text-xs text-stone-500 italic">
-                Prévia ilustrativa. Após a compra, envie sua foto em Minha Conta → Meus Pedidos para a Cris preparar sua prova visual.
+                Prévia ilustrativa. Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
               </p>
             )}
 
@@ -536,7 +536,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
 
               <div className="text-xs text-stone-600">
-                ou <span className="font-medium text-stone-900">{installmentCount}x</span> de{" "}
+                ou até <span className="font-medium text-stone-900">{installmentCount}x</span> de{" "}
                 <span className="font-semibold text-stone-900 tabular-nums">
                   R$ {installmentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>{" "}
@@ -740,7 +740,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       Tem foto, vídeo ou áudio para anexar?
                     </h4>
                     <p className="text-[#6B6A64] text-[11px] leading-relaxed mt-0.5">
-                      Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho antes de produzir!
+                      Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                     </p>
                   </div>
                 </div>
@@ -929,7 +929,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 Como funciona a personalização?
               </h2>
               <p className="text-xs text-stone-600 mt-1">
-                Sem complicação: você garante seu presente agora e envia seus arquivos na sua conta para a Cris preparar a arte.
+                Sem complicação: você garante seu presente agora. Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
               </p>
             </div>
 
@@ -965,7 +965,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     2. Envie seus arquivos no site
                   </h3>
                   <p className="text-xs text-stone-600 leading-relaxed">
-                    Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos).
+                    Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                   </p>
                 </div>
               </div>
@@ -1186,8 +1186,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       ))}
                     </div>
                     <p className="text-xs text-stone-700 pt-1">
-                      "Fiquei emocionada quando chegou! A gravação ficou super nítida e o atendimento
-                      pelo WhatsApp foi muito gentil e rápido para aprovar a arte. Recomendo demais!"
+                      "Fiquei emocionada quando chegou! A gravação ficou super nítida e em Meus Pedidos foi muito prático e rápido para aprovar a arte. Recomendo demais!"
                     </p>
                   </div>
 

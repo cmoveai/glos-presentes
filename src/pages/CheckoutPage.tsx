@@ -449,10 +449,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // ==========================================
   if (returnStatus === "approved" || (completedOrder && !returnStatus)) {
     const orderNum = completedOrder?.id || externalReference || "PED-NOVO";
-    const waOrderMsg = encodeURIComponent(
-      `Olá, equipe Nivah! Acabei de fazer meu pedido #${orderNum}. Gostaria de enviar os detalhes e fotos para personalização.`
-    );
-    const waLink = `https://wa.me/5511961820588?text=${waOrderMsg}`;
 
     return (
       <div className="bg-[#E4E2DD] min-h-screen py-10 px-4 sm:px-6">
@@ -487,7 +483,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       Seu pedido contém presente personalizado
                     </h3>
                     <p className="text-xs text-[#6B6A64] mt-1 leading-relaxed">
-                      Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho antes de produzir!
+                      Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                     </p>
                   </div>
                 </div>
@@ -1183,12 +1179,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
 
                   <p className="text-xs text-[#6B6A64] leading-relaxed">
-                    Você será redirecionado para a tela oficial do Mercado Pago ao clicar no botão de finalizar. Escolha entre <strong>Pix instantâneo</strong>, <strong>Cartão de Crédito em até 10x</strong> ou <strong>Boleto Bancário</strong>.
+                    Você será redirecionado para a tela oficial do Mercado Pago ao clicar no botão de finalizar. Escolha entre <strong>Pix instantâneo</strong>, <strong>Cartão de Crédito em até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x sem juros</strong> ou <strong>Boleto Bancário</strong>.
                   </p>
 
                   <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#D6D3CC] text-[11px] text-[#6B6A64]">
                     <span className="bg-[#EEEDE8] px-2 py-1 rounded-[4px] font-medium">Pix</span>
-                    <span className="bg-[#EEEDE8] px-2 py-1 rounded-[4px] font-medium">Cartão de Crédito (até 10x)</span>
+                    <span className="bg-[#EEEDE8] px-2 py-1 rounded-[4px] font-medium">Cartão de Crédito (até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x sem juros)</span>
                     <span className="bg-[#EEEDE8] px-2 py-1 rounded-[4px] font-medium">Boleto</span>
                   </div>
                 </div>
@@ -1283,7 +1279,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <p className="text-[#272727] font-medium mb-0.5">
                       🎨 Detalhes da Personalização
                     </p>
-                    Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
+                    Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                   </div>
                 )}
 
@@ -1356,7 +1352,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         R$ {total.toFixed(2)}
                       </span>
                       <span className="text-[11px] text-[#6B6A64] block mt-0.5">
-                        Parcele em até 10x no cartão
+                        Até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x sem juros no cartão
                       </span>
                     </div>
                   </div>

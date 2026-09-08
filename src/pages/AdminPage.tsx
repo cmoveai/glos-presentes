@@ -429,7 +429,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         price: Number(editingProduct.price),
         promotionalPrice: editingProduct.promotionalPrice ? Number(editingProduct.promotionalPrice) : undefined,
         costPrice: editingProduct.costPrice !== undefined && editingProduct.costPrice !== null && !isNaN(Number(editingProduct.costPrice)) ? Number(editingProduct.costPrice) : undefined,
-        installments: editingProduct.installments || 6,
+        installments: editingProduct.installments || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10,
         stock: Number(editingProduct.stock) || 0,
         sku: editingProduct.sku || `NDM-${productId.toUpperCase()}`,
         images:
@@ -2479,11 +2479,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   </label>
                   <input
                     type="number"
-                    value={editingProduct.installments || 6}
+                    value={editingProduct.installments || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10}
                     onChange={(e) =>
                       setEditingProduct({
                         ...editingProduct,
-                        installments: parseInt(e.target.value) || 6,
+                        installments: parseInt(e.target.value) || BRAND_CONFIG.maxInstallmentsWithoutInterest || 10,
                       })
                     }
                     className="w-full p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:border-stone-950 text-xs"

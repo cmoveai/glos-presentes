@@ -172,6 +172,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               “{item.textoCurto}”
                             </p>
                           )}
+                          {isPersonalizavel && (
+                            <p className="text-[10px] text-[#004AAD] mt-0.5 leading-tight">
+                              Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
+                            </p>
+                          )}
                           <div className="mt-1 font-bold text-xs sm:text-sm text-stone-950">
                             R$ {itemPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </div>
@@ -319,9 +324,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 )}
 
-                <div className="flex justify-between text-sm font-bold text-stone-950 pt-2 border-t border-stone-200">
+                <div className="flex justify-between items-baseline text-sm font-bold text-stone-950 pt-2 border-t border-stone-200">
                   <span>Total Estimado</span>
-                  <span>R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  <div className="text-right">
+                    <span>R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    <span className="text-[11px] text-stone-500 font-normal block mt-0.5">
+                      ou até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x de R${" "}
+                      {(total / (BRAND_CONFIG.maxInstallmentsWithoutInterest || 10)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} sem juros
+                    </span>
+                  </div>
                 </div>
               </div>
 

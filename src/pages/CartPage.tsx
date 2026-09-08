@@ -347,7 +347,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                             <div className="pt-1 flex items-start gap-1.5 text-[11px] text-[#004AAD]">
                               <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                               <span className="leading-snug">
-                                Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
+                                Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                               </span>
                             </div>
                           )}
@@ -461,6 +461,10 @@ export const CartPage: React.FC<CartPageProps> = ({
                       <span className="text-lg font-medium text-[#272727] tabular-nums">
                         R$ {subtotal.toFixed(2)}
                       </span>
+                      <span className="text-[11px] text-[#6B6A64] block mt-0.5">
+                        ou até {BRAND_CONFIG.maxInstallmentsWithoutInterest}x de R${" "}
+                        {(subtotal / (BRAND_CONFIG.maxInstallmentsWithoutInterest || 10)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} sem juros
+                      </span>
                     </div>
                   </div>
 
@@ -474,7 +478,7 @@ export const CartPage: React.FC<CartPageProps> = ({
                   <div className="p-3 bg-[#EEEDE8] border border-[#D6D3CC] rounded text-xs text-[#272727] flex items-start gap-2.5">
                     <Sparkles className="w-4 h-4 text-[#004AAD] shrink-0 mt-0.5" />
                     <p className="text-[11px] leading-relaxed text-[#272727]">
-                      <strong>Envio de fotos e arquivos:</strong> Após a compra, você envia sua foto/vídeo em alta resolução na sua conta (Minha Conta → Meus Pedidos) e a Cris finaliza sua arte com todo carinho.
+                      <strong>Envio de fotos e arquivos:</strong> Após a confirmação da compra, envie seus arquivos e fotos em Minha Conta → Meus Pedidos.
                     </p>
                   </div>
                 )}
